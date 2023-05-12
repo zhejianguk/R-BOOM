@@ -160,8 +160,8 @@ class LSUCoreIO(implicit p: Parameters) extends BoomBundle()(p)
 class LSUIO(implicit p: Parameters, edge: TLEdgeOut) extends BoomBundle()(p)
 {
   //===== GuardianCouncil Function: Start ====//
-  val ldq_head_addr                               = Output(UInt(xLen.W))
-  val stq_head_addr                               = Output(UInt(xLen.W))
+  val ldq_head                                    = Output(Vec(coreWidth, UInt((2*xLen).W)))
+  val stq_head                                    = Output(Vec(coreWidth, UInt((2*xLen).W)))
   //===== GuardianCouncil Function: End ====//
 
   val ptw   = new rocket.TLBPTWIO
@@ -1655,14 +1655,19 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
                     ~(st_exc_killed_mask.asUInt)
 
   //===== GuardianCouncil Function: Start ====//
-  val ldq_head_addr_delay                        = RegInit(0.U(xLen.W))
-  val stq_head_addr_delay                        = RegInit(0.U(xLen.W))
+  val ldq_head_delay                               = Reg(Vec(coreWidth, UInt((2*xLen).W)))
+  val stq_head_delay                               = Reg(Vec(coreWidth, UInt((2*xLen).W)))
+  val zeros_24bits                                 = WireInit(0.U(24.W))
 
-  ldq_head_addr_delay                           := ldq(ldq_head).bits.addr.bits
-  stq_head_addr_delay                           := stq(stq_commit_head).bits.addr.bits
+  for (i <- 0 to coreWidth - 1){
+    ldq_head_delay(i)                             := Cat(ldq(ldq_head+i.U).bits.debug_wb_data, zeros_24bits, ldq(ldq_head+i.U).bits.addr.bits)
+    stq_head_delay(i)                             := Cat(stq(stq_commit_head+i.U).bits.data.bits, zeros_24bits, stq(stq_commit_head+i.U).bits.addr.bits)
+  }
 
-  io.ldq_head_addr                              := ldq_head_addr_delay
-  io.stq_head_addr                              := stq_head_addr_delay
+  for (i <- 0 to coreWidth - 1){
+    io.ldq_head(i)                                := ldq_head_delay(i)
+    io.stq_head(i)                                := stq_head_delay(i)
+  }
   //===== GuardianCouncil Function: End ====//
 }
 

@@ -198,15 +198,86 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     val jal_or_jlar_target_buffer                 = Reg(Vec(gc_core_width, UInt(xLen.W)))
 
     outer.ghm_agg_core_id_out_SRNode.bundle      := ght.io.ghm_agg_core_id
+
+    // Revisit: make below generic, as it is a verilog style
+    val ldq_header                                = Wire(Vec(gc_core_width, UInt((2*xLen).W)))
+    val stq_header                                = Wire(Vec(gc_core_width, UInt((2*xLen).W)))
+    
+    ldq_header(0)                                := MuxCase(0.U,
+                                                      Array(((ght.io.ght_prfs_forward_ldq(0) === true.B)) -> lsu.io.ldq_head(0)
+                                                           )
+                                                           )
+
+    ldq_header(1)                                := MuxCase(0.U,
+                                                      Array(((ght.io.ght_prfs_forward_ldq(1) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === true.B)) -> lsu.io.ldq_head(1),
+                                                            ((ght.io.ght_prfs_forward_ldq(1) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === false.B)) -> lsu.io.ldq_head(0)
+                                                           )
+                                                           )
+
+    ldq_header(2)                                := MuxCase(0.U,
+                                                      Array(((ght.io.ght_prfs_forward_ldq(2) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === true.B) && (ght.io.ght_prfs_forward_ldq(1) === true.B)) -> lsu.io.ldq_head(2),
+                                                            ((ght.io.ght_prfs_forward_ldq(2) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === true.B) && (ght.io.ght_prfs_forward_ldq(1) === false.B)) -> lsu.io.ldq_head(1),
+                                                            ((ght.io.ght_prfs_forward_ldq(2) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === false.B) && (ght.io.ght_prfs_forward_ldq(1) === true.B)) -> lsu.io.ldq_head(1),
+                                                            ((ght.io.ght_prfs_forward_ldq(2) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === false.B) && (ght.io.ght_prfs_forward_ldq(1) === false.B)) -> lsu.io.ldq_head(0)
+                                                           )
+                                                           )
+
+    ldq_header(3)                                := MuxCase(0.U,
+                                                      Array(((ght.io.ght_prfs_forward_ldq(3) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === true.B) && (ght.io.ght_prfs_forward_ldq(1) === true.B) && (ght.io.ght_prfs_forward_ldq(2) === true.B)) -> lsu.io.ldq_head(3),
+                                                            ((ght.io.ght_prfs_forward_ldq(3) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === false.B) && (ght.io.ght_prfs_forward_ldq(1) === true.B) && (ght.io.ght_prfs_forward_ldq(2) === true.B)) -> lsu.io.ldq_head(2),
+                                                            ((ght.io.ght_prfs_forward_ldq(3) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === true.B) && (ght.io.ght_prfs_forward_ldq(1) === false.B) && (ght.io.ght_prfs_forward_ldq(2) === true.B)) -> lsu.io.ldq_head(2),
+                                                            ((ght.io.ght_prfs_forward_ldq(3) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === true.B) && (ght.io.ght_prfs_forward_ldq(1) === true.B) && (ght.io.ght_prfs_forward_ldq(2) === false.B)) -> lsu.io.ldq_head(2),
+                                                            ((ght.io.ght_prfs_forward_ldq(3) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === false.B) && (ght.io.ght_prfs_forward_ldq(1) === false.B) && (ght.io.ght_prfs_forward_ldq(2) === true.B)) -> lsu.io.ldq_head(1),
+                                                            ((ght.io.ght_prfs_forward_ldq(3) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === false.B) && (ght.io.ght_prfs_forward_ldq(1) === true.B) && (ght.io.ght_prfs_forward_ldq(2) === false.B)) -> lsu.io.ldq_head(1),
+                                                            ((ght.io.ght_prfs_forward_ldq(3) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === true.B) && (ght.io.ght_prfs_forward_ldq(1) === false.B) && (ght.io.ght_prfs_forward_ldq(2) === false.B)) -> lsu.io.ldq_head(1),
+                                                            ((ght.io.ght_prfs_forward_ldq(3) === true.B) && (ght.io.ght_prfs_forward_ldq(0) === false.B) && (ght.io.ght_prfs_forward_ldq(1) === false.B) && (ght.io.ght_prfs_forward_ldq(2) === false.B)) -> lsu.io.ldq_head(0)
+                                                           )
+                                                           )
+
+    stq_header(0)                                := MuxCase(0.U,
+                                                      Array(((ght.io.ght_prfs_forward_stq(0) === true.B)) -> lsu.io.stq_head(0)
+                                                           )
+                                                           )
+
+    stq_header(1)                                := MuxCase(0.U,
+                                                      Array(((ght.io.ght_prfs_forward_stq(1) === true.B) && (ght.io.ght_prfs_forward_stq(0) === true.B)) -> lsu.io.stq_head(1),
+                                                            ((ght.io.ght_prfs_forward_stq(1) === true.B) && (ght.io.ght_prfs_forward_stq(0) === false.B)) -> lsu.io.stq_head(0)
+                                                           )
+                                                           )
+
+    stq_header(2)                                := MuxCase(0.U,
+                                                      Array(((ght.io.ght_prfs_forward_stq(2) === true.B) && (ght.io.ght_prfs_forward_stq(0) === true.B) && (ght.io.ght_prfs_forward_stq(1) === true.B)) -> lsu.io.stq_head(2),
+                                                            ((ght.io.ght_prfs_forward_stq(2) === true.B) && (ght.io.ght_prfs_forward_stq(0) === true.B) && (ght.io.ght_prfs_forward_stq(1) === false.B)) -> lsu.io.stq_head(1),
+                                                            ((ght.io.ght_prfs_forward_stq(2) === true.B) && (ght.io.ght_prfs_forward_stq(0) === false.B) && (ght.io.ght_prfs_forward_stq(1) === true.B)) -> lsu.io.stq_head(1),
+                                                            ((ght.io.ght_prfs_forward_stq(2) === true.B) && (ght.io.ght_prfs_forward_stq(0) === false.B) && (ght.io.ght_prfs_forward_stq(1) === false.B)) -> lsu.io.stq_head(0)
+                                                           )
+                                                           )
+
+    stq_header(3)                                := MuxCase(0.U,
+                                                      Array(((ght.io.ght_prfs_forward_stq(3) === true.B) && (ght.io.ght_prfs_forward_stq(0) === true.B) && (ght.io.ght_prfs_forward_stq(1) === true.B) && (ght.io.ght_prfs_forward_stq(2) === true.B)) -> lsu.io.stq_head(3),
+                                                            ((ght.io.ght_prfs_forward_stq(3) === true.B) && (ght.io.ght_prfs_forward_stq(0) === false.B) && (ght.io.ght_prfs_forward_stq(1) === true.B) && (ght.io.ght_prfs_forward_stq(2) === true.B)) -> lsu.io.stq_head(2),
+                                                            ((ght.io.ght_prfs_forward_stq(3) === true.B) && (ght.io.ght_prfs_forward_stq(0) === true.B) && (ght.io.ght_prfs_forward_stq(1) === false.B) && (ght.io.ght_prfs_forward_stq(2) === true.B)) -> lsu.io.stq_head(2),
+                                                            ((ght.io.ght_prfs_forward_stq(3) === true.B) && (ght.io.ght_prfs_forward_stq(0) === true.B) && (ght.io.ght_prfs_forward_stq(1) === true.B) && (ght.io.ght_prfs_forward_stq(2) === false.B)) -> lsu.io.stq_head(2),
+                                                            ((ght.io.ght_prfs_forward_stq(3) === true.B) && (ght.io.ght_prfs_forward_stq(0) === false.B) && (ght.io.ght_prfs_forward_stq(1) === false.B) && (ght.io.ght_prfs_forward_stq(2) === true.B)) -> lsu.io.stq_head(1),
+                                                            ((ght.io.ght_prfs_forward_stq(3) === true.B) && (ght.io.ght_prfs_forward_stq(0) === false.B) && (ght.io.ght_prfs_forward_stq(1) === true.B) && (ght.io.ght_prfs_forward_stq(2) === false.B)) -> lsu.io.stq_head(1),
+                                                            ((ght.io.ght_prfs_forward_stq(3) === true.B) && (ght.io.ght_prfs_forward_stq(0) === true.B) && (ght.io.ght_prfs_forward_stq(1) === false.B) && (ght.io.ght_prfs_forward_stq(2) === false.B)) -> lsu.io.stq_head(1),
+                                                            ((ght.io.ght_prfs_forward_stq(3) === true.B) && (ght.io.ght_prfs_forward_stq(0) === false.B) && (ght.io.ght_prfs_forward_stq(1) === false.B) && (ght.io.ght_prfs_forward_stq(2) === false.B)) -> lsu.io.stq_head(0)
+                                                           )
+                                                           )
+
+
+    val zeros_64bits                              = WireInit(0.U(64.W))
+
+
     for (w <- 0 until gc_core_width) {
       jal_or_jlar_target_buffer(w)               := core.io.alu_out(w)
       ght.io.ght_pcaddr_in(w)                    := core.io.pc(w)
       ght.io.ght_inst_in(w)                      := core.io.inst(w)
       ght.io.new_commit(w)                       := core.io.new_commit(w)
       ght.io.ght_alu_in(w)                       := MuxCase(0.U, 
-                                                      Array((ght.io.ght_prfs_forward_ldq(w) === true.B) -> lsu.io.ldq_head_addr,
-                                                            (ght.io.ght_prfs_forward_stq(w) === true.B) -> lsu.io.stq_head_addr,
-                                                            (ght.io.ght_prfs_forward_ftq(w) === true.B) -> jal_or_jlar_target_buffer(w)
+                                                      Array((ght.io.ght_prfs_forward_ldq(w) === true.B) -> ldq_header(w),
+                                                            (ght.io.ght_prfs_forward_stq(w) === true.B) -> stq_header(w),
+                                                            (ght.io.ght_prfs_forward_ftq(w) === true.B) -> Cat(zeros_64bits, jal_or_jlar_target_buffer(w))
                                                            )
                                                            )
       core.io.ght_prfs_forward_prf(w)            := ght.io.ght_prfs_forward_prf(w)
