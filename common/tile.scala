@@ -174,12 +174,14 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   val debug_bp_cdc_bridge = Module(new GH_Bridge(GH_BridgeParams(64)))
   val debug_bp_filter_bridge = Module(new GH_Bridge(GH_BridgeParams(64)))
   val debug_bp_reset_bridge = Module(new GH_Bridge(GH_BridgeParams(1)))
-
+  
+  /* R Features */
+  val snapshot_bridge = Module(new GH_Bridge(GH_BridgeParams(1)))
   //===== GuardianCouncil Function: Start ====//
   val gc_core_width                               = outer.boomParams.core.decodeWidth
   if (outer.tileParams.hartId == 0) {
     println("#### Jessica #### Generating GHT for the big core, HartID: ", outer.boomParams.hartId, "...!!!")
-    val ght = Module(new GHT(GHTParams(vaddrBitsExtended, p(XLen), 32, 32, 4, 128, gc_core_width, true)))     // revisit: set 32 as the total number of checkers.
+    val ght = Module(new GHT(GHTParams(vaddrBitsExtended, p(XLen), 32, 32, 4, 136, gc_core_width, true)))     // revisit: set 32 as the total number of checkers.
                                                                                                               // revisit: total types of insts is 32
                                                                                                               // revisit: total number of SEs is 4 
                                                                                                               // revisit: packet size: 128 bits
@@ -202,7 +204,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     // Revisit: make below generic, as it is a verilog style
     val ldq_header                                = Wire(Vec(gc_core_width, UInt((2*xLen).W)))
     val stq_header                                = Wire(Vec(gc_core_width, UInt((2*xLen).W)))
-    
+
     ldq_header(0)                                := MuxCase(0.U,
                                                       Array(((ght.io.ght_prfs_forward_ldq(0) === true.B)) -> lsu.io.ldq_head(0)
                                                            )
@@ -266,7 +268,8 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
                                                            )
 
 
-    val zeros_64bits                              = WireInit(0.U(64.W))
+    val zeros_72bits                              = WireInit(0.U(72.W))
+    val zeros_8bits                               = WireInit(0.U(8.W))
 
 
     for (w <- 0 until gc_core_width) {
@@ -275,9 +278,9 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
       ght.io.ght_inst_in(w)                      := core.io.inst(w)
       ght.io.new_commit(w)                       := core.io.new_commit(w)
       ght.io.ght_alu_in(w)                       := MuxCase(0.U, 
-                                                      Array((ght.io.ght_prfs_forward_ldq(w) === true.B) -> ldq_header(w),
-                                                            (ght.io.ght_prfs_forward_stq(w) === true.B) -> stq_header(w),
-                                                            (ght.io.ght_prfs_forward_ftq(w) === true.B) -> Cat(zeros_64bits, jal_or_jlar_target_buffer(w))
+                                                      Array((ght.io.ght_prfs_forward_ldq(w) === true.B) -> Cat(zeros_8bits, ldq_header(w)),
+                                                            (ght.io.ght_prfs_forward_stq(w) === true.B) -> Cat(zeros_8bits, stq_header(w)),
+                                                            (ght.io.ght_prfs_forward_ftq(w) === true.B) -> Cat(zeros_72bits, jal_or_jlar_target_buffer(w))
                                                            )
                                                            )
       core.io.ght_prfs_forward_prf(w)            := ght.io.ght_prfs_forward_prf(w)
@@ -293,9 +296,20 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     debug_bp_checker_bridge.io.in                := ght.io.debug_bp_checker
     debug_bp_cdc_bridge.io.in                    := ght.io.debug_bp_cdc
     debug_bp_filter_bridge.io.in                 := ght.io.debug_bp_filter
+
+    /* R Features */
+    core.io.snapshot                             := snapshot_bridge.io.out
+    core.io.ght_filters_ready                    := ght.io.ght_filters_ready
+    for (w <- 0 until gc_core_width){
+      ght.io.core_r_arfs(w)                      := core.io.r_arfs(w)
+      ght.io.core_r_arfs_index(w)                := core.io.r_arfs_pidx(w)
+    }
+    ght.io.rsu_merging                           := core.io.rsu_merging
+
   } else { 
     // Not be used, added to pass the compile
     core.io.gh_stall                             := 0.U
+    core.io.snapshot                             := 0.U
   }
   //===== GuardianCouncil Function: End   ====//
 
@@ -361,6 +375,9 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
         rocc.module.io.debug_bp_checker              := cmdRouter.io.debug_bp_checker
         rocc.module.io.debug_bp_cdc                  := cmdRouter.io.debug_bp_cdc
         rocc.module.io.debug_bp_filter               := cmdRouter.io.debug_bp_filter
+
+        /* R Features */
+        cmdRouter.io.snapshot_in                    := rocc.module.io.snapshot_out
         //===== GuardianCouncil Function: End   ====//
       }
       // Create this FPU just for RoCC
@@ -426,6 +443,9 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     cmdRouter.io.debug_bp_cdc                    := debug_bp_cdc_bridge.io.out
     cmdRouter.io.debug_bp_filter                 := debug_bp_filter_bridge.io.out
     cmdRouter.io.debug_gcounter                  := outer.debug_gcounter_SKNode.bundle
+
+    /* R Features */
+    snapshot_bridge.io.in                        := cmdRouter.io.snapshot_out
     //===== GuardianCouncil Function: End   ====//
   }
 

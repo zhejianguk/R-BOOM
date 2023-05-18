@@ -46,6 +46,10 @@ import boom.ifu.{GlobalHistory, HasBoomFrontendParameters}
 import boom.exu.FUConstants._
 import boom.util._
 
+//===== GuardianCouncil Function: Start ====//
+import freechips.rocketchip.r._
+//===== GuardianCouncil Function: End   ====//
+
 /**
  * Top level core object that connects the Frontend to the rest of the pipeline.
  */
@@ -64,7 +68,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val trace = Output(Vec(coreParams.retireWidth, new ExtendedTracedInstruction))
     val fcsr_rm = UInt(freechips.rocketchip.tile.FPConstants.RM_SZ.W)
 
-    val gh_stall = Input(Bool())
+    
     //===== GuardianCouncil Function: Start ====//
     val pc = Output(Vec(coreWidth, UInt(vaddrBitsExtended.W)))
     val inst = Output(Vec(coreWidth, UInt(32.W)))
@@ -78,6 +82,18 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val alu_out = Output(Vec(coreWidth, UInt(xLen.W)))
     val ght_prv = Output(UInt(2.W))
     val is_rvc = Output(Vec(coreWidth, UInt(1.W)))
+    // val arf_long = Output(UInt((xLen*2).W))
+    // val arf_pc = Output(UInt(40.W))
+    // val arf_sel = Input(UInt(6.W))
+
+    val gh_stall = Input(Bool())
+    
+    /* R Features */
+    val snapshot = Input(UInt(1.W))
+    val ght_filters_ready = Input(UInt(1.W))
+    val r_arfs = Output (Vec(coreWidth, (UInt((xLen*2+8).W))))
+    val r_arfs_pidx = Output(Vec(coreWidth, UInt(5.W)))
+    val rsu_merging = Output(UInt(1.W))
     //===== GuardianCouncil Function: End ====//
   }
   //**********************************
@@ -739,12 +755,14 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   //-------------------------------------------------------------
   // Rob Allocation Logic
 
+  val rsu_stall = WireInit(0.U(1.W))
+
   rob.io.enq_valids := dis_fire
   rob.io.enq_uops   := dis_uops
   rob.io.enq_partial_stall := dis_stalls.last // TODO come up with better ROB compacting scheme.
   rob.io.debug_tsc := debug_tsc_reg
   rob.io.csr_stall := csr.io.csr_stall
-  rob.io.gh_stall  := io.gh_stall
+  rob.io.gh_stall  := io.gh_stall|rsu_stall
 
   // Minor hack: ecall and breaks need to increment the FTQ deq ptr earlier than commit, since
   // they write their PC into the CSR the cycle before they commit.
@@ -1539,5 +1557,52 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     io.alu_out(w)                                := rob.io.commit.gh_effective_alu_out(w);
   }
   io.ght_prv                                     := csr.io.status.prv
+
+  val numARFS                                     = 32
+  val pcarf                                       = RegInit(0.U(40.W))
+  val arfs                                        = Reg(Vec(numARFS, UInt(xLen.W)))
+  val farfs                                       = Reg(Vec(numARFS, UInt(xLen.W)))
+
+  for (w <- 0 until coreWidth) {
+    when (rob.io.commit.arch_valids(w)) {
+      when (rob.io.commit.uops(w).dst_rtype === RT_FIX && rob.io.commit.uops(w).ldst =/= 0.U) {
+        arfs(rob.io.commit.uops(w).ldst)          := rob.io.commit.debug_wdata(w)
+      } .elsewhen (rob.io.commit.uops(w).dst_rtype === RT_FLT) {
+        farfs(rob.io.commit.uops(w).ldst)         := rob.io.commit.debug_wdata(w)
+      }
+    }
+  }
+
+  pcarf                                           := MuxCase(pcarf,
+                                                      Array(((rob.io.commit.arch_valids(3) === true.B)) -> rob.io.commit.uops(3).debug_pc,
+                                                            ((rob.io.commit.arch_valids(3) === false.B) && (rob.io.commit.arch_valids(2) === true.B)) -> rob.io.commit.uops(2).debug_pc,
+                                                            ((rob.io.commit.arch_valids(3) === false.B) && (rob.io.commit.arch_valids(2) === false.B) && (rob.io.commit.arch_valids(1) === true.B)) -> rob.io.commit.uops(1).debug_pc,
+                                                            ((rob.io.commit.arch_valids(3) === false.B) && (rob.io.commit.arch_valids(2) === false.B) && (rob.io.commit.arch_valids(1) === false.B) && (rob.io.commit.arch_valids(0) === true.B)) -> rob.io.commit.uops(0).debug_pc
+                                                           )
+                                                           )
+  
+
+  /* R Features */
+  val rsu_master = Module(new R_RSU(R_RSUParams(xLen, numARFS, coreWidth)))
+  val snapshot_reg                                 = RegInit(0.U(1.W))
+  snapshot_reg                                    := io.snapshot
+
+  for (i <- 0 until numARFS) {
+    rsu_master.io.arfs_in(i)                      := arfs(i)
+    rsu_master.io.farfs_in(i)                     := farfs(i)
+  }
+  rsu_master.io.pcarf_in                          := pcarf
+  rsu_master.io.fcsr_in                           := csr.io.fcsr_read
+  rsu_master.io.snapshot                          := io.snapshot
+  rsu_master.io.merge                             := snapshot_reg // Revisit: currently send the snapshot 1-cycle after the snapshot
+  rsu_master.io.ght_filters_ready                 := io.ght_filters_ready
+  rsu_stall                                       := rsu_master.io.core_hang_up
+
+  for (w <- 0 until coreWidth){
+    io.r_arfs(w)                                  := Cat(rsu_master.io.arfs_index(w), rsu_master.io.arfs_merge(w))
+    io.r_arfs_pidx(w)                             := rsu_master.io.arfs_pidx(w)
+  }
+  io.rsu_merging                                  := rsu_master.io.rsu_merging
+
   //===== GuardianCouncil Function: End ====//
 }
