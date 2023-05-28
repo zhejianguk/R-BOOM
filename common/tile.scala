@@ -181,10 +181,10 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   val gc_core_width                               = outer.boomParams.core.decodeWidth
   if (outer.tileParams.hartId == 0) {
     println("#### Jessica #### Generating GHT for the big core, HartID: ", outer.boomParams.hartId, "...!!!")
-    val ght = Module(new GHT(GHTParams(vaddrBitsExtended, p(XLen), 32, 32, 4, 136, gc_core_width, true)))     // revisit: set 32 as the total number of checkers.
+    val ght = Module(new GHT(GHTParams(vaddrBitsExtended, p(XLen), 32, 32, 4, 141, gc_core_width, true)))     // revisit: set 32 as the total number of checkers.
                                                                                                               // revisit: total types of insts is 32
                                                                                                               // revisit: total number of SEs is 4 
-                                                                                                              // revisit: packet size: 128 bits
+                                                                                                              // revisit: packet size: 141 bits
 
     ght.io.ght_mask_in                           := (ght_bridge.io.out | (!if_correct_process_bridge.io.out))
     ght.io.ght_cfg_in                            := ght_cfg_bridge.io.out
@@ -378,6 +378,8 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
 
         /* R Features */
         cmdRouter.io.snapshot_in                    := rocc.module.io.snapshot_out
+        cmdRouter.io.arf_copy_in                    := rocc.module.io.arf_copy_out
+        rocc.module.io.rsu_status_in                := cmdRouter.io.rsu_status_in
         //===== GuardianCouncil Function: End   ====//
       }
       // Create this FPU just for RoCC
@@ -446,6 +448,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
 
     /* R Features */
     snapshot_bridge.io.in                        := cmdRouter.io.snapshot_out
+    cmdRouter.io.rsu_status_in                   := 0.U
     //===== GuardianCouncil Function: End   ====//
   }
 

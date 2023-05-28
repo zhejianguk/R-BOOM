@@ -1593,7 +1593,9 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   }
   rsu_master.io.pcarf_in                          := pcarf
   rsu_master.io.fcsr_in                           := csr.io.fcsr_read
-  rsu_master.io.snapshot                          := io.snapshot
+  rsu_master.io.snapshot                          := io.snapshot // Check the delay of it
+  csr.io.pfarf_valid                              := 0.U
+  csr.io.fcsr_in                                  := 0.U
   rsu_master.io.merge                             := snapshot_reg // Revisit: currently send the snapshot 1-cycle after the snapshot
   rsu_master.io.ght_filters_ready                 := io.ght_filters_ready
   rsu_stall                                       := rsu_master.io.core_hang_up
