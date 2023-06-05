@@ -378,6 +378,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
 
         /* R Features */
         cmdRouter.io.snapshot_in                    := rocc.module.io.snapshot_out
+        cmdRouter.io.s_or_r_in                      := rocc.module.io.s_or_r_out
         cmdRouter.io.arf_copy_in                    := rocc.module.io.arf_copy_out
         rocc.module.io.rsu_status_in                := cmdRouter.io.rsu_status_in
         //===== GuardianCouncil Function: End   ====//
