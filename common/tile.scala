@@ -176,15 +176,15 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   val debug_bp_reset_bridge = Module(new GH_Bridge(GH_BridgeParams(1)))
   
   /* R Features */
-  val snapshot_bridge = Module(new GH_Bridge(GH_BridgeParams(1)))
+  val icctrl_bridge = Module(new GH_Bridge(GH_BridgeParams(4)))
+  val t_value_bridge = Module(new GH_Bridge(GH_BridgeParams(15)))
   //===== GuardianCouncil Function: Start ====//
   val gc_core_width                               = outer.boomParams.core.decodeWidth
   if (outer.tileParams.hartId == 0) {
     println("#### Jessica #### Generating GHT for the big core, HartID: ", outer.boomParams.hartId, "...!!!")
-    val ght = Module(new GHT(GHTParams(vaddrBitsExtended, p(XLen), 32, 32, 4, 141, gc_core_width, true)))     // revisit: set 32 as the total number of checkers.
-                                                                                                              // revisit: total types of insts is 32
-                                                                                                              // revisit: total number of SEs is 4 
-                                                                                                              // revisit: packet size: 141 bits
+    val ght = Module(new GHT(GHTParams(vaddrBitsExtended, p(XLen), 32, 256, 6, GH_GlobalParams.GH_WIDITH_PACKETS, gc_core_width, true)))      // revisit: set 32 as the total number of checkers.
+                                                                                                                                              // revisit: total types of insts is 256
+                                                                                                                                              // revisit: total number of SEs is 6 
 
     ght.io.ght_mask_in                           := (ght_bridge.io.out | (!if_correct_process_bridge.io.out))
     ght.io.ght_cfg_in                            := ght_cfg_bridge.io.out
@@ -194,6 +194,9 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     outer.ght_packet_dest_SRNode.bundle          := ght.io.ght_packet_dest
     core.io.gh_stall                             := ght.io.core_hang_up
     outer.ghe_event_out_SRNode.bundle            := ghe_bridge.io.out
+    outer.clear_ic_status_SRNode.bundle          := 0.U
+    core.io.clear_ic_status_tomain               := outer.clear_ic_status_tomainSKNode.bundle
+    core.io.icsl_na                              := outer.icsl_naSKNode.bundle
     ght.io.core_na                               := outer.sch_na_inSKNode.bundle
     if_ght_filters_empty_bridge.io.in            := ght.io.ght_filters_empty
 
@@ -288,6 +291,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
       outer.frontend.module.io.gh.gh_ftq_idx(w)  := Mux((core.io.is_jal_or_jalr(w) === true.B), core.io.ft_idx(w), 0.U)
       ght.io.ght_is_rvc_in(w)                    := core.io.is_rvc(w)
     }
+    ght.io.ic_crnt_target                        := core.io.ic_crnt_target
     ght.io.debug_bp_in                           := outer.debug_bp_in_SKNode.bundle
     ght.io.ght_stall                             := outer.bigcore_hang_in_SKNode.bundle
     ght_buffer_status_bridge.io.in               := ght.io.ght_buffer_status
@@ -298,18 +302,25 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     debug_bp_filter_bridge.io.in                 := ght.io.debug_bp_filter
 
     /* R Features */
-    core.io.snapshot                             := snapshot_bridge.io.out
+    core.io.icctrl                               := icctrl_bridge.io.out
+    core.io.t_value                              := t_value_bridge.io.out
     core.io.ght_filters_ready                    := ght.io.ght_filters_ready
+    core.io.if_correct_process                   := if_correct_process_bridge.io.out
     for (w <- 0 until gc_core_width){
       ght.io.core_r_arfs(w)                      := core.io.r_arfs(w)
       ght.io.core_r_arfs_index(w)                := core.io.r_arfs_pidx(w)
     }
     ght.io.rsu_merging                           := core.io.rsu_merging
+    val ic_counter_superset                       = WireInit(0.U((16*GH_GlobalParams.GH_NUM_CORES).W))
+    ic_counter_superset                          := core.io.ic_counter.reverse.reduce(Cat(_,_))
+    outer.ic_counter_SRNode.bundle               := ic_counter_superset
+    
 
   } else { 
     // Not be used, added to pass the compile
     core.io.gh_stall                             := 0.U
-    core.io.snapshot                             := 0.U
+    core.io.icctrl                               := 0.U
+    core.io.t_value                              := 0.U
   }
   //===== GuardianCouncil Function: End   ====//
 
@@ -377,7 +388,8 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
         rocc.module.io.debug_bp_filter               := cmdRouter.io.debug_bp_filter
 
         /* R Features */
-        cmdRouter.io.snapshot_in                    := rocc.module.io.snapshot_out
+        cmdRouter.io.icctrl_in                      := rocc.module.io.icctrl_out
+        cmdRouter.io.t_value_in                      := rocc.module.io.t_value_out
         cmdRouter.io.s_or_r_in                      := rocc.module.io.s_or_r_out
         cmdRouter.io.arf_copy_in                    := rocc.module.io.arf_copy_out
         rocc.module.io.rsu_status_in                := cmdRouter.io.rsu_status_in
@@ -448,7 +460,8 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     cmdRouter.io.debug_gcounter                  := outer.debug_gcounter_SKNode.bundle
 
     /* R Features */
-    snapshot_bridge.io.in                        := cmdRouter.io.snapshot_out
+    icctrl_bridge.io.in                          := cmdRouter.io.icctrl_out
+    t_value_bridge.io.in                         := cmdRouter.io.t_value_out
     cmdRouter.io.rsu_status_in                   := 0.U
     //===== GuardianCouncil Function: End   ====//
   }

@@ -48,6 +48,7 @@ import boom.util._
 
 //===== GuardianCouncil Function: Start ====//
 import freechips.rocketchip.r._
+import freechips.rocketchip.guardiancouncil._
 //===== GuardianCouncil Function: End   ====//
 
 /**
@@ -89,11 +90,17 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val gh_stall = Input(Bool())
     
     /* R Features */
-    val snapshot = Input(UInt(1.W))
+    val icctrl = Input(UInt(4.W))
+    val t_value = Input(UInt(4.W))
     val ght_filters_ready = Input(UInt(1.W))
     val r_arfs = Output (Vec(coreWidth, (UInt((xLen*2+8).W))))
-    val r_arfs_pidx = Output(Vec(coreWidth, UInt(5.W)))
+    val r_arfs_pidx = Output(Vec(coreWidth, UInt(8.W)))
     val rsu_merging = Output(UInt(1.W))
+    val ic_crnt_target = Output(UInt(5.W))
+    val if_correct_process = Input(UInt(1.W))
+    val ic_counter = Output(Vec(GH_GlobalParams.GH_NUM_CORES, (UInt(16.W))))
+    val clear_ic_status_tomain = Input(UInt(GH_GlobalParams.GH_NUM_CORES.W))
+    val icsl_na = Input(UInt(GH_GlobalParams.GH_NUM_CORES.W))
     //===== GuardianCouncil Function: End ====//
   }
   //**********************************
@@ -756,13 +763,14 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   // Rob Allocation Logic
 
   val rsu_stall = WireInit(0.U(1.W))
+  val ic_stall = WireInit(0.U(1.W))
 
   rob.io.enq_valids := dis_fire
   rob.io.enq_uops   := dis_uops
   rob.io.enq_partial_stall := dis_stalls.last // TODO come up with better ROB compacting scheme.
   rob.io.debug_tsc := debug_tsc_reg
   rob.io.csr_stall := csr.io.csr_stall
-  rob.io.gh_stall  := io.gh_stall|rsu_stall
+  rob.io.gh_stall  := io.gh_stall|rsu_stall|ic_stall
 
   // Minor hack: ecall and breaks need to increment the FTQ deq ptr earlier than commit, since
   // they write their PC into the CSR the cycle before they commit.
@@ -1558,6 +1566,15 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   }
   io.ght_prv                                     := csr.io.status.prv
 
+  val zero_2bits                                  = WireInit(0.U(2.W))
+  val arch_valids_extended                        = Wire(Vec(coreWidth, UInt(3.W)))
+  for (i <- 0 until coreWidth) {
+    arch_valids_extended(i)                      := Cat(zero_2bits, rob.io.commit.arch_valids.asUInt(i))
+  }
+  
+  val ic_incr                                     = arch_valids_extended.reduce(_ + _)
+
+
   val numARFS                                     = 32
   val pcarf                                       = RegInit(0.U(40.W))
   val arfs                                        = Reg(Vec(numARFS, UInt(xLen.W)))
@@ -1584,20 +1601,43 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 
   /* R Features */
   val rsu_master = Module(new R_RSU(R_RSUParams(xLen, numARFS, coreWidth)))
-  val snapshot_reg                                 = RegInit(0.U(1.W))
-  snapshot_reg                                    := io.snapshot
+  val ic_master = Module(new R_IC(R_ICParams(GH_GlobalParams.GH_NUM_CORES, 16)))
+  
 
+  ic_master.io.ic_run_isax                        := io.icctrl(0)
+  ic_master.io.ic_exit_isax                       := io.icctrl(1)
+  ic_master.io.ic_syscall                         := io.icctrl(2)
+  ic_master.io.ic_syscall_back                    := io.icctrl(3)
+  ic_master.io.rsu_busy                           := rsu_master.io.rsu_busy
+  ic_master.io.ic_threshold                       := 4950.U
+  ic_master.io.ic_incr                            := ic_incr
+  ic_stall                                        := ic_master.io.if_pipeline_stall
+  io.ic_crnt_target                               := ic_master.io.crnt_target
+  for (i <-0 until GH_GlobalParams.GH_NUM_CORES){
+    io.ic_counter(i)                              := ic_master.io.ic_counter(i)
+    ic_master.io.clear_ic_status(i)               := io.clear_ic_status_tomain(i)
+    ic_master.io.icsl_na(i)                       := io.icsl_na(i)
+  }
+  ic_master.io.if_correct_process                 := io.if_correct_process
+  
+
+  // revisit 
+  val if_filtering                                 = ic_master.io.if_filtering // NOT USED YET!
+  val snapshot_reg                                 = RegInit(0.U(1.W))
+  snapshot_reg                                    := ic_master.io.if_dosnap
+  
   for (i <- 0 until numARFS) {
     rsu_master.io.arfs_in(i)                      := arfs(i)
     rsu_master.io.farfs_in(i)                     := farfs(i)
   }
-  rsu_master.io.pcarf_in                          := pcarf
+  rsu_master.io.pcarf_in                          := rob.io.r_next_pc
   rsu_master.io.fcsr_in                           := csr.io.fcsr_read
-  rsu_master.io.snapshot                          := io.snapshot // Check the delay of it
+  rsu_master.io.snapshot                          := ic_master.io.if_dosnap
   csr.io.pfarf_valid                              := 0.U
   csr.io.fcsr_in                                  := 0.U
-  rsu_master.io.merge                             := snapshot_reg // Revisit: currently send the snapshot 1-cycle after the snapshot
+  rsu_master.io.merge                             := snapshot_reg
   rsu_master.io.ght_filters_ready                 := io.ght_filters_ready
+  rsu_master.io.ic_crnt_target                    := ic_master.io.crnt_target
   rsu_stall                                       := rsu_master.io.core_hang_up
 
   for (w <- 0 until coreWidth){
