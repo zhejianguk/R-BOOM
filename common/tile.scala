@@ -174,6 +174,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   val debug_bp_cdc_bridge = Module(new GH_Bridge(GH_BridgeParams(64)))
   val debug_bp_filter_bridge = Module(new GH_Bridge(GH_BridgeParams(64)))
   val debug_bp_reset_bridge = Module(new GH_Bridge(GH_BridgeParams(1)))
+  val number_checkers_bridge = Module(new GH_Bridge(GH_BridgeParams(8)))
   
   /* R Features */
   val icctrl_bridge = Module(new GH_Bridge(GH_BridgeParams(4)))
@@ -314,8 +315,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     val ic_counter_superset                       = WireInit(0.U((16*GH_GlobalParams.GH_NUM_CORES).W))
     ic_counter_superset                          := core.io.ic_counter.reverse.reduce(Cat(_,_))
     outer.ic_counter_SRNode.bundle               := ic_counter_superset
-    
-
+    core.io.num_of_checker                       := number_checkers_bridge.io.out
   } else { 
     // Not be used, added to pass the compile
     core.io.gh_stall                             := 0.U
@@ -436,6 +436,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     ght_cfg_v_bridge.io.in                       := cmdRouter.io.ght_cfg_valid
     debug_bp_reset_bridge.io.in                  := cmdRouter.io.debug_bp_reset
     outer.ght_status_out_SRNode.bundle           := Cat(if_ght_filters_empty_bridge.io.out, cmdRouter.io.ght_status_out(30,0))
+    number_checkers_bridge.io.in                 := cmdRouter.io.ght_status_out(30,23)
 
     // agg
     outer.agg_packet_out_SRNode.bundle           := cmdRouter.io.agg_packet_out

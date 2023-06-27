@@ -90,6 +90,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val gh_stall = Input(Bool())
     
     /* R Features */
+    val num_of_checker = Input(UInt(8.W))
     val icctrl = Input(UInt(4.W))
     val t_value = Input(UInt(4.W))
     val ght_filters_ready = Input(UInt(1.W))
@@ -1612,6 +1613,11 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   ic_master.io.ic_threshold                       := 4950.U
   ic_master.io.ic_incr                            := ic_incr
   ic_stall                                        := ic_master.io.if_pipeline_stall
+  val num_activated_cores                          = RegInit(0.U(8.W))
+  num_activated_cores                             := io.num_of_checker
+  ic_master.io.num_of_checker                     := io.num_of_checker
+  ic_master.io.changing_num_of_checker            := Mux((num_activated_cores =/= io.num_of_checker), 1.U, 0.U)
+
   io.ic_crnt_target                               := ic_master.io.crnt_target
   for (i <-0 until GH_GlobalParams.GH_NUM_CORES){
     io.ic_counter(i)                              := ic_master.io.ic_counter(i)
