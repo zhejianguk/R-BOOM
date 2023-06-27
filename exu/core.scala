@@ -1607,8 +1607,8 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 
   ic_master.io.ic_run_isax                        := io.icctrl(0)
   ic_master.io.ic_exit_isax                       := io.icctrl(1)
-  ic_master.io.ic_syscall                         := io.icctrl(2)
-  ic_master.io.ic_syscall_back                    := io.icctrl(3)
+  ic_master.io.ic_syscall                         := io.icctrl(2) | csr.io.r_exception
+  ic_master.io.ic_syscall_back                    := io.icctrl(3) | io.if_correct_process.asBool
   ic_master.io.rsu_busy                           := rsu_master.io.rsu_busy
   ic_master.io.ic_threshold                       := 4950.U
   ic_master.io.ic_incr                            := ic_incr
