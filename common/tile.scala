@@ -31,6 +31,7 @@ import boom.util.{BoomCoreStringPrefix}
 import freechips.rocketchip.prci.ClockSinkParameters
 //===== GuardianCouncil Function: Start ====//
 import freechips.rocketchip.guardiancouncil._
+import freechips.rocketchip.r._
 //===== GuardianCouncil Function: End   ====//
 
 case class BoomTileAttachParams(
@@ -174,11 +175,26 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   val debug_bp_cdc_bridge = Module(new GH_Bridge(GH_BridgeParams(64)))
   val debug_bp_filter_bridge = Module(new GH_Bridge(GH_BridgeParams(64)))
   val debug_bp_reset_bridge = Module(new GH_Bridge(GH_BridgeParams(1)))
+  val debug_gtimer_reset_bridge = Module(new GH_Bridge(GH_BridgeParams(1)))
   val number_checkers_bridge = Module(new GH_Bridge(GH_BridgeParams(8)))
   
   /* R Features */
   val icctrl_bridge = Module(new GH_Bridge(GH_BridgeParams(4)))
   val t_value_bridge = Module(new GH_Bridge(GH_BridgeParams(15)))
+  val s_or_r = Reg(UInt(1.W))
+  val fi_sel = Wire(UInt(8.W))
+  val fi_latency = Wire(UInt(57.W))
+
+  val debug_gtimer_reset = Reg(UInt(1.W))
+  val debug_gtimer = Reg(UInt(62.W))
+  val debug_gtimer_tiny = Reg(UInt(4.W))
+  debug_gtimer_reset := debug_gtimer_reset_bridge.io.out
+  debug_gtimer_reset := debug_gtimer_reset_bridge.io.out
+
+  debug_gtimer_tiny := Mux(debug_gtimer_reset.asBool, 0.U, Mux((s_or_r === 1.U), Mux(debug_gtimer_tiny === 9.U, 0.U, debug_gtimer_tiny + 1.U), 0.U))
+  debug_gtimer := Mux(debug_gtimer_reset.asBool, 0.U, Mux((s_or_r === 1.U), Mux(debug_gtimer_tiny === 9.U, debug_gtimer + 1.U, debug_gtimer), 0.U))
+
+
   //===== GuardianCouncil Function: Start ====//
   val gc_core_width                               = outer.boomParams.core.decodeWidth
   if (outer.tileParams.hartId == 0) {
@@ -187,7 +203,20 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
                                                                                                                                               // revisit: total types of insts is 256
                                                                                                                                               // revisit: total number of SEs is 6 
 
+    val fiu = Module(new R_FIU(R_FIUParams(40, GH_GlobalParams.GH_NUM_CORES-1)))
+    fiu.io.gtimer                                := debug_gtimer
+
+    for (i <- 0 until GH_GlobalParams.GH_NUM_CORES-1){
+      fiu.io.fi_d(i)                             := outer.report_fi_detection_in_SKNode.bundle(i*57+56, i*57)
+    }
+    fiu.io.sel                                   := fi_sel
+    fi_latency                                   := fiu.io.fi_rslt
+
+
     ght.io.ght_mask_in                           := (ght_bridge.io.out | (!if_correct_process_bridge.io.out))
+    ght.io.gtimer                                := debug_gtimer
+    ght.io.gtimer_reset                          := debug_gtimer_reset
+    ght.io.use_fi_mode                           := s_or_r
     ght.io.ght_cfg_in                            := ght_cfg_bridge.io.out
     ght.io.ght_cfg_valid                         := ght_cfg_v_bridge.io.out
     ght.io.debug_bp_reset                        := debug_bp_reset_bridge.io.out
@@ -384,15 +413,18 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
         rocc.module.io.debug_gcounter                := cmdRouter.io.debug_gcounter
         
         rocc.module.io.debug_bp_checker              := cmdRouter.io.debug_bp_checker
+        rocc.module.io.fi_latency                    := cmdRouter.io.fi_latency
         rocc.module.io.debug_bp_cdc                  := cmdRouter.io.debug_bp_cdc
         rocc.module.io.debug_bp_filter               := cmdRouter.io.debug_bp_filter
 
         /* R Features */
-        cmdRouter.io.icctrl_in                      := rocc.module.io.icctrl_out
+        cmdRouter.io.icctrl_in                       := rocc.module.io.icctrl_out
         cmdRouter.io.t_value_in                      := rocc.module.io.t_value_out
-        cmdRouter.io.s_or_r_in                      := rocc.module.io.s_or_r_out
-        cmdRouter.io.arf_copy_in                    := rocc.module.io.arf_copy_out
-        rocc.module.io.rsu_status_in                := cmdRouter.io.rsu_status_in
+        cmdRouter.io.s_or_r_in                       := rocc.module.io.s_or_r_out
+        cmdRouter.io.arf_copy_in                     := rocc.module.io.arf_copy_out
+        rocc.module.io.rsu_status_in                 := cmdRouter.io.rsu_status_in
+        cmdRouter.io.gtimer_reset_in                 := rocc.module.io.gtimer_reset_out
+        cmdRouter.io.fi_sel_in                       := rocc.module.io.fi_sel_out 
         //===== GuardianCouncil Function: End   ====//
       }
       // Create this FPU just for RoCC
@@ -432,6 +464,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     cmdRouter.io.ghe_status_in                   := outer.ghe_status_in_SKNode.bundle
     ghe_bridge.io.in                             := cmdRouter.io.ghe_event_out
     ght_bridge.io.in                             := cmdRouter.io.ght_mask_out
+    debug_gtimer_reset_bridge.io.in              := cmdRouter.io.gtimer_reset_out
     ght_cfg_bridge.io.in                         := cmdRouter.io.ght_cfg_out
     ght_cfg_v_bridge.io.in                       := cmdRouter.io.ght_cfg_valid
     debug_bp_reset_bridge.io.in                  := cmdRouter.io.debug_bp_reset
@@ -456,6 +489,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     cmdRouter.io.debug_mcounter                  := debug_mcounter_bridge.io.out
     cmdRouter.io.debug_icounter                  := debug_icounter_bridge.io.out
     cmdRouter.io.debug_bp_checker                := debug_bp_checker_bridge.io.out
+    cmdRouter.io.fi_latency                      := fi_latency
     cmdRouter.io.debug_bp_cdc                    := debug_bp_cdc_bridge.io.out
     cmdRouter.io.debug_bp_filter                 := debug_bp_filter_bridge.io.out
     cmdRouter.io.debug_gcounter                  := outer.debug_gcounter_SKNode.bundle
@@ -464,6 +498,8 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     icctrl_bridge.io.in                          := cmdRouter.io.icctrl_out
     t_value_bridge.io.in                         := cmdRouter.io.t_value_out
     cmdRouter.io.rsu_status_in                   := 0.U
+    s_or_r                                       := cmdRouter.io.s_or_r_out(1)
+    fi_sel                                       := cmdRouter.io.fi_sel_out
     //===== GuardianCouncil Function: End   ====//
   }
 
