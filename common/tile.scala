@@ -203,7 +203,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
                                                                                                                                               // revisit: total types of insts is 256
                                                                                                                                               // revisit: total number of SEs is 6 
 
-    val fiu = Module(new R_FIU(R_FIUParams(40, GH_GlobalParams.GH_NUM_CORES-1)))
+    val fiu = Module(new R_FIU(R_FIUParams(64, GH_GlobalParams.GH_NUM_CORES-1)))
     fiu.io.gtimer                                := debug_gtimer
 
     for (i <- 0 until GH_GlobalParams.GH_NUM_CORES-1){
