@@ -246,7 +246,7 @@ class WithNMegaBooms(n: Int = 1, overrideIdOffset: Option[Int] = None) extends C
               numStqEntries = 32,
               maxBrCount = 20,
               numFetchBufferEntries = 32,
-              enablePrefetching = true,
+              // enablePrefetching = true,
               ftq = FtqParameters(nEntries=40),
               fpu = Some(freechips.rocketchip.tile.FPUParams(sfmaLatency=4, dfmaLatency=4, divSqrt=true))
             ),
