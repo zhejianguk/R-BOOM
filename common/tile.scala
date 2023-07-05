@@ -192,7 +192,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   debug_gtimer_reset := debug_gtimer_reset_bridge.io.out
 
   debug_gtimer_tiny := Mux(debug_gtimer_reset.asBool, 0.U, Mux((s_or_r === 1.U), Mux(debug_gtimer_tiny === 3.U, 0.U, debug_gtimer_tiny + 1.U), 0.U))
-  debug_gtimer := Mux(debug_gtimer_reset.asBool, 0.U, Mux((s_or_r === 1.U), Mux(debug_gtimer_tiny === 9.U, debug_gtimer + 1.U, debug_gtimer), 0.U))
+  debug_gtimer := Mux(debug_gtimer_reset.asBool, 0.U, Mux((s_or_r === 1.U), Mux(debug_gtimer_tiny === 3.U, debug_gtimer + 1.U, debug_gtimer), 0.U))
 
 
   //===== GuardianCouncil Function: Start ====//
