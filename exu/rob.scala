@@ -113,6 +113,7 @@ class RobIo(
 
   //===== GuardianCouncil Function: Start ====//
   val gh_stall                                  = Input(Bool())
+  val can_commit_withoutGC                      = Output(Bool())
 
   val gh_effective_jalr_target                  = Input(UInt(xLen.W)) // Revisit: make it is generic
   val gh_effective_rob_idx                      = Input(UInt(7.W))    // Revisit: make it is generic
@@ -255,6 +256,7 @@ class Rob(
 
   val will_commit         = Wire(Vec(coreWidth, Bool()))
   val can_commit          = Wire(Vec(coreWidth, Bool()))
+  val can_commit_noGC     = Wire(Vec(coreWidth, Bool()))
   val can_throw_exception = Wire(Vec(coreWidth, Bool()))
 
   val rob_pnr_unsafe      = Wire(Vec(coreWidth, Bool())) // are the instructions at the pnr unsafe?
@@ -265,6 +267,7 @@ class Rob(
   val rob_head_fflags     = Wire(Vec(coreWidth, UInt(freechips.rocketchip.tile.FPConstants.FLAGS_SZ.W)))
   val rob_head_pcs        = Wire(Vec(coreWidth, UInt(40.W)))
   io.r_next_pc           := rob_head_pcs(rob_head_lsb)
+  io.can_commit_withoutGC:= can_commit_noGC.reduce(_|_)
   
   val exception_thrown = Wire(Bool())
 
@@ -421,6 +424,7 @@ class Rob(
     // Can this instruction commit? (the check for exceptions/rob_state happens later).
     //===== GuardianCouncil Function: Start ====//
     can_commit(w)                                := rob_val(rob_head) && !(rob_bsy(rob_head)) && !io.csr_stall && !io.gh_stall
+    can_commit_noGC(w)                           := rob_val(rob_head) && !(rob_bsy(rob_head)) && !io.csr_stall
     
     when ((io.gh_effective_valid === 1.U) && (GetBankIdx(io.gh_effective_rob_idx) === w.U)) {
       gh_effective_alu_out_reg (GetRowIdx(io.gh_effective_rob_idx)) := io.gh_effective_jalr_target

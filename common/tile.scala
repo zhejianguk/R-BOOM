@@ -182,6 +182,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   val icctrl_bridge = Module(new GH_Bridge(GH_BridgeParams(4)))
   val t_value_bridge = Module(new GH_Bridge(GH_BridgeParams(15)))
   val s_or_r = Reg(UInt(1.W))
+  val core_trace = Wire(UInt(1.W))
   val fi_sel = Wire(UInt(8.W))
   val fi_latency = Wire(UInt(57.W))
 
@@ -371,6 +372,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
 
   //fpuOpt foreach { fpu => core.io.fpu <> fpu.io } RocketFpu - not needed in boom
   core.io.rocc := DontCare
+  core.io.core_trace := core_trace
 
   if (outer.roccs.size > 0) {
     val (respArb, cmdRouter) = {
@@ -423,6 +425,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
         rocc.module.io.rsu_status_in                 := cmdRouter.io.rsu_status_in
         cmdRouter.io.gtimer_reset_in                 := rocc.module.io.gtimer_reset_out
         cmdRouter.io.fi_sel_in                       := rocc.module.io.fi_sel_out 
+        cmdRouter.io.core_trace_in                   := rocc.module.io.core_trace_out
         //===== GuardianCouncil Function: End   ====//
       }
       // Create this FPU just for RoCC
@@ -498,6 +501,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     cmdRouter.io.rsu_status_in                   := 0.U
     s_or_r                                       := cmdRouter.io.s_or_r_out(1)
     fi_sel                                       := cmdRouter.io.fi_sel_out
+    core_trace                                   := cmdRouter.io.core_trace_out
     //===== GuardianCouncil Function: End   ====//
   }
 

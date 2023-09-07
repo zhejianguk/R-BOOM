@@ -102,6 +102,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val ic_counter = Output(Vec(GH_GlobalParams.GH_NUM_CORES, (UInt(16.W))))
     val clear_ic_status_tomain = Input(UInt(GH_GlobalParams.GH_NUM_CORES.W))
     val icsl_na = Input(UInt(GH_GlobalParams.GH_NUM_CORES.W))
+    val core_trace = Input(UInt(1.W))
     //===== GuardianCouncil Function: End ====//
   }
   //**********************************
@@ -1395,67 +1396,27 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   // **** Handle Cycle-by-Cycle Printouts ****
   //-------------------------------------------------------------
   //-------------------------------------------------------------
+  var new_commit_cnt = 0.U
 
-
-  if (COMMIT_LOG_PRINTF) {
-    var new_commit_cnt = 0.U
-
+  if (GH_GlobalParams.GH_DEBUG == 1) {
     for (w <- 0 until coreWidth) {
       val priv = RegNext(csr.io.status.prv) // erets change the privilege. Get the old one
-
-      // To allow for diffs against spike :/
-      def printf_inst(uop: MicroOp) = {
-        when (uop.is_rvc) {
-          printf("(0x%x)", uop.debug_inst(15,0))
-        } .otherwise {
-          printf("(0x%x)", uop.debug_inst)
-        }
-      }
-
-      when (rob.io.commit.arch_valids(w)) {
-        printf("%d 0x%x ",
-          priv,
-          Sext(rob.io.commit.uops(w).debug_pc(vaddrBits-1,0), xLen))
-        printf_inst(rob.io.commit.uops(w))
-        when (rob.io.commit.uops(w).dst_rtype === RT_FIX && rob.io.commit.uops(w).ldst =/= 0.U) {
-          printf(" x%d 0x%x\n",
-            rob.io.commit.uops(w).ldst,
-            rob.io.commit.debug_wdata(w))
-        } .elsewhen (rob.io.commit.uops(w).dst_rtype === RT_FLT) {
-          printf(" f%d 0x%x\n",
-            rob.io.commit.uops(w).ldst,
-            rob.io.commit.debug_wdata(w))
-        } .otherwise {
-          printf("\n")
+      when (rob.io.commit.arch_valids(w) && io.core_trace.asBool) {
+        printf(midas.targetutils.SynthesizePrintf("W=%d, priv=[%d] pc=[0x%x] inst=[0x%x]\n", 
+        w.asUInt, priv, Sext(rob.io.commit.uops(w).debug_pc(vaddrBits-1,0), xLen),
+        Mux(rob.io.commit.uops(w).is_rvc, rob.io.commit.uops(w).debug_inst(15,0), rob.io.commit.uops(w).debug_inst)))
+      
+        when (rob.io.commit.arch_valids(w) && io.core_trace.asBool && rob.io.commit.uops(w).dst_rtype === RT_FIX && rob.io.commit.uops(w).ldst =/= 0.U) {
+          printf(midas.targetutils.SynthesizePrintf(" ldst=[x%d 0x%x]\n",
+              rob.io.commit.uops(w).ldst,
+              rob.io.commit.debug_wdata(w)))
+        } .elsewhen (rob.io.commit.arch_valids(w) && io.core_trace.asBool && rob.io.commit.uops(w).dst_rtype === RT_FLT) {
+            printf(midas.targetutils.SynthesizePrintf(" flt=[f%d 0x%x]\n",
+              rob.io.commit.uops(w).ldst,
+              rob.io.commit.debug_wdata(w)))
         }
       }
     }
-  } else if (BRANCH_PRINTF) {
-    val debug_ghist = RegInit(0.U(globalHistoryLength.W))
-    when (rob.io.flush.valid && FlushTypes.useCsrEvec(rob.io.flush.bits.flush_typ)) {
-      debug_ghist := 0.U
-    }
-
-    var new_ghist = debug_ghist
-
-    for (w <- 0 until coreWidth) {
-      when (rob.io.commit.arch_valids(w) &&
-        (rob.io.commit.uops(w).is_br || rob.io.commit.uops(w).is_jal || rob.io.commit.uops(w).is_jalr)) {
-        // for (i <- 0 until globalHistoryLength) {
-        //   printf("%x", new_ghist(globalHistoryLength-i-1))
-        // }
-        // printf("\n")
-        printf("%x %x %x %x %x %x\n",
-          rob.io.commit.uops(w).debug_fsrc, rob.io.commit.uops(w).taken,
-          rob.io.commit.uops(w).is_br, rob.io.commit.uops(w).is_jal,
-          rob.io.commit.uops(w).is_jalr, Sext(rob.io.commit.uops(w).debug_pc(vaddrBits-1,0), xLen))
-
-      }
-      new_ghist = Mux(rob.io.commit.arch_valids(w) && rob.io.commit.uops(w).is_br,
-        Mux(rob.io.commit.uops(w).taken, new_ghist << 1 | 1.U(1.W), new_ghist << 1),
-        new_ghist)
-    }
-    debug_ghist := new_ghist
   }
 
   // TODO: Does anyone want this debugging functionality?
@@ -1603,12 +1564,15 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   /* R Features */
   val rsu_master = Module(new R_RSU(R_RSUParams(xLen, numARFS, coreWidth)))
   val ic_master = Module(new R_IC(R_ICParams(GH_GlobalParams.GH_NUM_CORES, 16)))
+  val r_exception_record                           = RegInit(0.U(1.W))
+  r_exception_record                              := Mux(csr.io.r_exception.asBool, 1.U, Mux(ic_incr =/= 0.U, 0.U, r_exception_record))
   
 
   ic_master.io.ic_run_isax                        := io.icctrl(0)
   ic_master.io.ic_exit_isax                       := io.icctrl(1)
   ic_master.io.ic_syscall                         := io.icctrl(2) | csr.io.r_exception
-  ic_master.io.ic_syscall_back                    := io.icctrl(3) | io.if_correct_process.asBool
+  ic_master.io.ic_syscall_back                    := (io.icctrl(3) | io.if_correct_process.asBool) && (r_exception_record === 0.U) && (csr.io.r_exception === 0.U)
+  ic_master.io.if_ready_snap_shot                 := rob.io.can_commit_withoutGC.asUInt
   ic_master.io.rsu_busy                           := rsu_master.io.rsu_busy
   ic_master.io.ic_threshold                       := 4950.U
   ic_master.io.ic_incr                            := ic_incr
