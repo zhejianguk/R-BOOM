@@ -1510,6 +1510,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 
   //===== GuardianCouncil Function: Start ====//
   val ght_prfs_forward_prf_reg                    = Reg(Vec(coreWidth, Bool()))
+  val if_mret_or_sret                             = Wire(Vec(coreWidth, Bool()))
   
   for (w <- 0 until coreWidth) {
     ght_prfs_forward_prf_reg(w)                  := io.ght_prfs_forward_prf(w)
@@ -1525,6 +1526,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     io.ft_idx(w)                                 := rob.io.commit.uops(w).ftq_idx
     io.is_rvc(w)                                 := rob.io.commit.uops(w).is_rvc
     io.alu_out(w)                                := rob.io.commit.gh_effective_alu_out(w);
+    if_mret_or_sret(w)                           := rob.io.commit.arch_valids(w) && ((rob.io.commit.uops(w).debug_inst(31,0) === 0x30200073.U) || (rob.io.commit.uops(w).debug_inst(31,0) === 0x10200073.U))
   }
   io.ght_prv                                     := csr.io.status.prv
 
@@ -1564,14 +1566,13 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   /* R Features */
   val rsu_master = Module(new R_RSU(R_RSUParams(xLen, numARFS, coreWidth)))
   val ic_master = Module(new R_IC(R_ICParams(GH_GlobalParams.GH_NUM_CORES, 16)))
-  val r_exception_record                           = RegInit(0.U(1.W))
-  r_exception_record                              := Mux(csr.io.r_exception.asBool, 1.U, Mux(ic_incr =/= 0.U, 0.U, r_exception_record))
+  // val r_exception_record                           = RegInit(0.U(1.W))
+  // r_exception_record                              := Mux(csr.io.r_exception.asBool, 1.U, Mux(ic_incr =/= 0.U, 0.U, r_exception_record))
   
-
   ic_master.io.ic_run_isax                        := io.icctrl(0)
   ic_master.io.ic_exit_isax                       := io.icctrl(1)
   ic_master.io.ic_syscall                         := io.icctrl(2) | csr.io.r_exception
-  ic_master.io.ic_syscall_back                    := (io.icctrl(3) | io.if_correct_process.asBool) && (r_exception_record === 0.U) && (csr.io.r_exception === 0.U)
+  ic_master.io.ic_syscall_back                    := (io.icctrl(3) | if_mret_or_sret.reduce(_||_)) && (csr.io.r_exception === 0.U)
   ic_master.io.if_ready_snap_shot                 := rob.io.can_commit_withoutGC.asUInt
   ic_master.io.rsu_busy                           := rsu_master.io.rsu_busy
   ic_master.io.ic_threshold                       := 4950.U
