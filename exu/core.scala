@@ -1510,7 +1510,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 
   //===== GuardianCouncil Function: Start ====//
   val ght_prfs_forward_prf_reg                    = Reg(Vec(coreWidth, Bool()))
-  val if_mret_or_sret                             = Wire(Vec(coreWidth, Bool()))
+  val if_mret_or_sret                             = Reg(Vec(coreWidth, Bool()))
   
   for (w <- 0 until coreWidth) {
     ght_prfs_forward_prf_reg(w)                  := io.ght_prfs_forward_prf(w)
