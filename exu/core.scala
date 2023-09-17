@@ -152,6 +152,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   val dispatcher       = Module(new BasicDispatcher)
 
   //===== GuardianCouncil Function: Start ====//
+  val r_syscall                                    = Wire(Bool())
   val iregfile         = Module(new RegisterFileSynthesizable(
                              numIntPhysRegs,
                              numIrfReadPorts + coreWidth, // additional ports for GH_Subsystem
@@ -1398,9 +1399,9 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   //-------------------------------------------------------------
   var new_commit_cnt = 0.U
 
+  val priv = RegNext(csr.io.status.prv) // erets change the privilege. Get the old one
   if (GH_GlobalParams.GH_DEBUG == 1) {
     for (w <- 0 until coreWidth) {
-      val priv = RegNext(csr.io.status.prv) // erets change the privilege. Get the old one
       when (rob.io.commit.arch_valids(w) && io.core_trace.asBool) {
         printf(midas.targetutils.SynthesizePrintf("W=%d, priv=[%d] pc=[0x%x] inst=[0x%x]\n", 
         w.asUInt, priv, Sext(rob.io.commit.uops(w).debug_pc(vaddrBits-1,0), xLen),
@@ -1517,7 +1518,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 
     io.pc(w)                                     := rob.io.commit.uops(w).debug_pc(31,0)
     io.inst(w)                                   := rob.io.commit.uops(w).debug_inst(31,0)
-    io.new_commit(w)                             := rob.io.commit.arch_valids(w)
+    io.new_commit(w)                             := Mux(r_syscall, 0.U, rob.io.commit.arch_valids(w))
     io.prf_rd(w)                                 := Mux(ght_prfs_forward_prf_reg(w) === true.B, iregfile.io.read_ports(numIrfReadPorts + w).data, 0.U)
     
     io.uses_ldq(w)                               := rob.io.commit.uops(w).uses_ldq
@@ -1528,7 +1529,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     io.alu_out(w)                                := rob.io.commit.gh_effective_alu_out(w);
     if_mret_or_sret(w)                           := rob.io.commit.arch_valids(w) && ((rob.io.commit.uops(w).debug_inst(31,0) === 0x30200073.U) || (rob.io.commit.uops(w).debug_inst(31,0) === 0x10200073.U))
   }
-  io.ght_prv                                     := csr.io.status.prv
+  io.ght_prv                                     := RegNext(csr.io.status.prv)
 
   val zero_2bits                                  = WireInit(0.U(2.W))
   val arch_valids_extended                        = Wire(Vec(coreWidth, UInt(3.W)))
@@ -1546,32 +1547,27 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 
   for (w <- 0 until coreWidth) {
     when (rob.io.commit.arch_valids(w)) {
-      when (rob.io.commit.uops(w).dst_rtype === RT_FIX && rob.io.commit.uops(w).ldst =/= 0.U) {
+      when (rob.io.commit.uops(w).dst_rtype === RT_FIX && rob.io.commit.uops(w).ldst =/= 0.U && !r_syscall) {
         arfs(rob.io.commit.uops(w).ldst)          := rob.io.commit.debug_wdata(w)
-      } .elsewhen (rob.io.commit.uops(w).dst_rtype === RT_FLT) {
+      } .elsewhen (rob.io.commit.uops(w).dst_rtype === RT_FLT && !r_syscall) {
         farfs(rob.io.commit.uops(w).ldst)         := rob.io.commit.debug_wdata(w)
       }
     }
   }
-
-  pcarf                                           := MuxCase(pcarf,
-                                                      Array(((rob.io.commit.arch_valids(3) === true.B)) -> rob.io.commit.uops(3).debug_pc,
-                                                            ((rob.io.commit.arch_valids(3) === false.B) && (rob.io.commit.arch_valids(2) === true.B)) -> rob.io.commit.uops(2).debug_pc,
-                                                            ((rob.io.commit.arch_valids(3) === false.B) && (rob.io.commit.arch_valids(2) === false.B) && (rob.io.commit.arch_valids(1) === true.B)) -> rob.io.commit.uops(1).debug_pc,
-                                                            ((rob.io.commit.arch_valids(3) === false.B) && (rob.io.commit.arch_valids(2) === false.B) && (rob.io.commit.arch_valids(1) === false.B) && (rob.io.commit.arch_valids(0) === true.B)) -> rob.io.commit.uops(0).debug_pc
-                                                           )
-                                                           )
   
 
   /* R Features */
   val rsu_master = Module(new R_RSU(R_RSUParams(xLen, numARFS, coreWidth)))
   val ic_master = Module(new R_IC(R_ICParams(GH_GlobalParams.GH_NUM_CORES, 16)))
+  val priv_reg                                     = RegInit(0.U(2.W))
+  priv_reg                                        := Mux(ic_incr =/= 0.U, priv, priv_reg)
+  r_syscall                                       := Mux((ic_incr =/= 0.U) && (priv_reg < priv), true.B, false.B)
   // val r_exception_record                           = RegInit(0.U(1.W))
   // r_exception_record                              := Mux(csr.io.r_exception.asBool, 1.U, Mux(ic_incr =/= 0.U, 0.U, r_exception_record))
   
   ic_master.io.ic_run_isax                        := io.icctrl(0)
   ic_master.io.ic_exit_isax                       := io.icctrl(1)
-  ic_master.io.ic_syscall                         := io.icctrl(2) | csr.io.r_exception
+  ic_master.io.ic_syscall                         := io.icctrl(2) | RegNext(r_syscall)
   ic_master.io.ic_syscall_back                    := (io.icctrl(3) | if_mret_or_sret.reduce(_||_)) && (csr.io.r_exception === 0.U)
   ic_master.io.if_ready_snap_shot                 := rob.io.can_commit_withoutGC.asUInt
   ic_master.io.rsu_busy                           := rsu_master.io.rsu_busy
