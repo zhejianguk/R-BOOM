@@ -1572,7 +1572,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   ic_master.io.if_ready_snap_shot                 := rob.io.can_commit_withoutGC.asUInt
   ic_master.io.rsu_busy                           := rsu_master.io.rsu_busy
   ic_master.io.ic_threshold                       := 4950.U
-  ic_master.io.ic_incr                            := ic_incr
+  ic_master.io.ic_incr                            := Mux(r_syscall, 0.U, ic_incr)
   ic_stall                                        := ic_master.io.if_pipeline_stall
   val num_activated_cores                          = RegInit(0.U(8.W))
   num_activated_cores                             := io.num_of_checker
