@@ -767,13 +767,15 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
 
   val rsu_stall = WireInit(0.U(1.W))
   val ic_stall = WireInit(0.U(1.W))
+  val r_exception_record = RegInit(0.U(1.W))
+
 
   rob.io.enq_valids := dis_fire
   rob.io.enq_uops   := dis_uops
   rob.io.enq_partial_stall := dis_stalls.last // TODO come up with better ROB compacting scheme.
   rob.io.debug_tsc := debug_tsc_reg
   rob.io.csr_stall := csr.io.csr_stall
-  rob.io.gh_stall  := io.gh_stall|rsu_stall|ic_stall
+  rob.io.gh_stall  := (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record)
 
   // Minor hack: ecall and breaks need to increment the FTQ deq ptr earlier than commit, since
   // they write their PC into the CSR the cycle before they commit.
@@ -1559,11 +1561,8 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   /* R Features */
   val rsu_master = Module(new R_RSU(R_RSUParams(xLen, numARFS, coreWidth)))
   val ic_master = Module(new R_IC(R_ICParams(GH_GlobalParams.GH_NUM_CORES, 16)))
-  val priv_reg                                     = RegInit(0.U(2.W))
-  priv_reg                                        := Mux(ic_incr =/= 0.U, priv, priv_reg)
-  r_syscall                                       := Mux((ic_incr =/= 0.U) && (priv_reg < priv), true.B, false.B)
-  // val r_exception_record                           = RegInit(0.U(1.W))
-  // r_exception_record                              := Mux(csr.io.r_exception.asBool, 1.U, Mux(ic_incr =/= 0.U, 0.U, r_exception_record))
+  r_exception_record                              := Mux(csr.io.r_exception.asBool, 1.U, Mux(ic_incr =/= 0.U && r_exception_record.asBool, 0.U, r_exception_record))
+  r_syscall                                       := Mux((ic_incr =/= 0.U) && (r_exception_record.asBool || csr.io.r_exception.asBool), true.B, false.B)
   
   ic_master.io.ic_run_isax                        := io.icctrl(0)
   ic_master.io.ic_exit_isax                       := io.icctrl(1)
