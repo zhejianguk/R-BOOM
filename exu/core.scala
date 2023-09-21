@@ -1577,6 +1577,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   num_activated_cores                             := io.num_of_checker
   ic_master.io.num_of_checker                     := io.num_of_checker
   ic_master.io.changing_num_of_checker            := Mux((num_activated_cores =/= io.num_of_checker), 1.U, 0.U)
+  ic_master.io.core_trace                         := io.core_trace
 
   io.ic_crnt_target                               := ic_master.io.crnt_target
   for (i <-0 until GH_GlobalParams.GH_NUM_CORES){
@@ -1604,6 +1605,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   rsu_master.io.merge                             := snapshot_reg
   rsu_master.io.ght_filters_ready                 := io.ght_filters_ready
   rsu_master.io.ic_crnt_target                    := ic_master.io.crnt_target
+  rsu_master.io.core_trace                        := io.core_trace
   rsu_stall                                       := rsu_master.io.core_hang_up
 
   for (w <- 0 until coreWidth){
