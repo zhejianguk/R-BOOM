@@ -777,6 +777,24 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   rob.io.csr_stall := csr.io.csr_stall
   rob.io.gh_stall  := (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record)
 
+
+  if (GH_GlobalParams.GH_DEBUG == 1) {
+  val stall_counter = RegInit(0.U(15.W))
+  val gh_stall_printf = (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record)
+
+  when ((csr.io.csr_stall | gh_stall_printf).asBool) {
+    stall_counter := Mux(stall_counter < 8192.U, stall_counter + 1.U, 0.U)
+  } .otherwise {
+    stall_counter := 0.U
+  }
+
+  when (stall_counter === 8000) {
+    printf(midas.targetutils.SynthesizePrintf("stall_counter=%x, csr_stall=[%x] gh_stall_printf=[%x] \n", 
+          stall_counter, csr.io.csr_stall, gh_stall_printf))
+  }
+  }
+
+
   // Minor hack: ecall and breaks need to increment the FTQ deq ptr earlier than commit, since
   // they write their PC into the CSR the cycle before they commit.
   // Since these are also unique, increment the FTQ ptr when they are dispatched
@@ -1578,7 +1596,6 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   ic_master.io.num_of_checker                     := io.num_of_checker
   ic_master.io.changing_num_of_checker            := Mux((num_activated_cores =/= io.num_of_checker), 1.U, 0.U)
   ic_master.io.core_trace                         := io.core_trace
-  csr.io.core_trace                               := io.core_trace
 
   io.ic_crnt_target                               := ic_master.io.crnt_target
   for (i <-0 until GH_GlobalParams.GH_NUM_CORES){
