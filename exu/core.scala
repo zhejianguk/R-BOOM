@@ -788,7 +788,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     stall_counter := 0.U
   }
 
-  when (stall_counter === 8000) {
+  when (stall_counter === 8000.U) {
     printf(midas.targetutils.SynthesizePrintf("stall_counter=%x, csr_stall=[%x] gh_stall_printf=[%x] \n", 
           stall_counter, csr.io.csr_stall, gh_stall_printf))
   }
