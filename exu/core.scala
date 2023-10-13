@@ -1596,7 +1596,8 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   ic_master.io.num_of_checker                     := io.num_of_checker
   ic_master.io.changing_num_of_checker            := Mux((num_activated_cores =/= io.num_of_checker), 1.U, 0.U)
   ic_master.io.core_trace                         := io.core_trace
-
+  csr.io.core_trace                               := io.core_trace
+  
   io.ic_crnt_target                               := ic_master.io.crnt_target
   for (i <-0 until GH_GlobalParams.GH_NUM_CORES){
     io.ic_counter(i)                              := ic_master.io.ic_counter(i)
