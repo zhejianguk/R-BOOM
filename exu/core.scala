@@ -777,12 +777,12 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   rob.io.csr_stall := csr.io.csr_stall
   rob.io.gh_stall  := (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record)
 
-
+  /*
   if (GH_GlobalParams.GH_DEBUG == 1) {
   val stall_counter = RegInit(0.U(15.W))
   val gh_stall_printf = (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record)
 
-  /*
+
   when ((csr.io.csr_stall | gh_stall_printf).asBool) {
     stall_counter := Mux(stall_counter < 8192.U, stall_counter + 1.U, 0.U)
   } .otherwise {
