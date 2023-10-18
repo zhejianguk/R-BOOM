@@ -182,7 +182,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   val icctrl_bridge = Module(new GH_Bridge(GH_BridgeParams(4)))
   val t_value_bridge = Module(new GH_Bridge(GH_BridgeParams(15)))
   val s_or_r = Reg(UInt(1.W))
-  val core_trace = Wire(UInt(1.W))
+  val core_trace = Wire(UInt(2.W))
   val fi_sel = Wire(UInt(8.W))
   val fi_latency = Wire(UInt(57.W))
 
@@ -372,7 +372,8 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
 
   //fpuOpt foreach { fpu => core.io.fpu <> fpu.io } RocketFpu - not needed in boom
   core.io.rocc := DontCare
-  core.io.core_trace := core_trace
+  core.io.core_trace := core_trace(0)
+  core.io.ic_trace := core_trace(1)
 
   if (outer.roccs.size > 0) {
     val (respArb, cmdRouter) = {

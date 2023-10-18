@@ -103,6 +103,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val clear_ic_status_tomain = Input(UInt(GH_GlobalParams.GH_NUM_CORES.W))
     val icsl_na = Input(UInt(GH_GlobalParams.GH_NUM_CORES.W))
     val core_trace = Input(UInt(1.W))
+    val ic_trace = Input(UInt(1.W))
     //===== GuardianCouncil Function: End ====//
   }
   //**********************************
@@ -1422,7 +1423,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   var new_commit_cnt = 0.U
 
   val priv = RegNext(csr.io.status.prv) // erets change the privilege. Get the old one
-  if (GH_GlobalParams.GH_DEBUG == 1) {
+  if (GH_GlobalParams.GH_DEBUG == 1) {  
     for (w <- 0 until coreWidth) {
       when (rob.io.commit.arch_valids(w) && io.core_trace.asBool) {
         printf(midas.targetutils.SynthesizePrintf("W=%d, priv=[%d] pc=[0x%x] inst=[0x%x]\n", 
@@ -1576,6 +1577,28 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
       }
     }
   }
+
+  if (GH_GlobalParams.GH_DEBUG == 1) {
+    val debug_instruction_counter = RegInit(0.U(64.W))
+    val ic_trace_reg = RegInit(0.U(1.W))
+    ic_trace_reg := io.ic_trace
+
+    when ((io.ic_trace === 1.U) && (ic_trace_reg === 0.U)){
+      debug_instruction_counter := 0.U
+    }
+    when ((ic_incr =/= 0.U) && io.ic_trace.asBool) {
+      debug_instruction_counter := debug_instruction_counter + ic_incr
+    }
+
+    when ((io.ic_trace === 0.U) && (ic_trace_reg === 1.U)){
+      printf(midas.targetutils.SynthesizePrintf("Debug_IC=[0x%x]\n", debug_instruction_counter))
+    } .otherwise {
+      when (((debug_instruction_counter & 0x3FFF.U) === 0.U) && (io.ic_trace.asBool)){
+        printf(midas.targetutils.SynthesizePrintf("Debug_IC=[0x%x]\n", debug_instruction_counter))
+      }
+    }
+  }
+
   
 
   /* R Features */
