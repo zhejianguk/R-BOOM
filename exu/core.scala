@@ -1586,7 +1586,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     when ((io.ic_trace === 1.U) && (ic_trace_reg === 0.U)){
       debug_instruction_counter := 0.U
     }
-    when ((ic_incr =/= 0.U) && io.ic_trace.asBool) {
+    when ((ic_incr =/= 0.U) && (io.ic_trace.asBool) && io.if_correct_process.asBool) {
       debug_instruction_counter := debug_instruction_counter + ic_incr
     }
 
