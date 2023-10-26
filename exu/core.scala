@@ -778,24 +778,23 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   rob.io.csr_stall := csr.io.csr_stall
   rob.io.gh_stall  := (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record)
 
-  /*
+  
   if (GH_GlobalParams.GH_DEBUG == 1) {
   val stall_counter = RegInit(0.U(15.W))
   val gh_stall_printf = (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record)
 
 
   when ((csr.io.csr_stall | gh_stall_printf).asBool) {
-    stall_counter := Mux(stall_counter < 8192.U, stall_counter + 1.U, 0.U)
+    stall_counter := Mux(stall_counter < 51.U, stall_counter + 1.U, stall_counter)
   } .otherwise {
     stall_counter := 0.U
   }
 
-  when (stall_counter === 8000.U) {
-    printf(midas.targetutils.SynthesizePrintf("stall_counter=%x, csr_stall=[%x] gh_stall_printf=[%x] \n", 
-          stall_counter, csr.io.csr_stall, gh_stall_printf))
+  when ((stall_counter === 50.U) && (io.core_trace.asBool)) {
+    printf(midas.targetutils.SynthesizePrintf("stall=[%x] [%x] [%x] [%x] [%x].\n", 
+          stall_counter, csr.io.csr_stall, io.gh_stall, rsu_stall, ic_stall))
   }
   }
-  */
 
 
   // Minor hack: ecall and breaks need to increment the FTQ deq ptr earlier than commit, since
