@@ -778,7 +778,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   rob.io.csr_stall := csr.io.csr_stall
   rob.io.gh_stall  := (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record)
 
-  
+  /*
   if (GH_GlobalParams.GH_DEBUG == 1) {
   val stall_counter = RegInit(0.U(15.W))
   val gh_stall_printf = (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record)
@@ -795,6 +795,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
           stall_counter, csr.io.csr_stall, io.gh_stall, rsu_stall, ic_stall))
   }
   }
+  */
 
 
   // Minor hack: ecall and breaks need to increment the FTQ deq ptr earlier than commit, since
