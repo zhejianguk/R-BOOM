@@ -1650,6 +1650,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   rsu_master.io.ght_filters_ready                 := io.ght_filters_ready
   rsu_master.io.ic_crnt_target                    := ic_master.io.crnt_target
   rsu_master.io.core_trace                        := io.core_trace
+  rsu_master.io.ic_trace                          := io.ic_trace 
   rsu_stall                                       := rsu_master.io.core_hang_up
 
   for (w <- 0 until coreWidth){
