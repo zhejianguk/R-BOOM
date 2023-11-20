@@ -1630,6 +1630,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     ic_master.io.icsl_na(i)                       := io.icsl_na(i)
   }
   ic_master.io.if_correct_process                 := io.if_correct_process
+  ic_master.io.ic_trace                           := io.ic_trace
   
 
   // revisit 
