@@ -776,7 +776,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   rob.io.enq_partial_stall := dis_stalls.last // TODO come up with better ROB compacting scheme.
   rob.io.debug_tsc := debug_tsc_reg
   rob.io.csr_stall := csr.io.csr_stall
-  rob.io.gh_stall  := (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record) & (~io.if_correct_process.asBool)
+  rob.io.gh_stall  := (io.gh_stall|rsu_stall|ic_stall) & (~r_exception_record) & (io.if_correct_process)
 
   /*
   if (GH_GlobalParams.GH_DEBUG == 1) {
