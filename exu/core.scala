@@ -104,6 +104,8 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val icsl_na = Input(UInt(GH_GlobalParams.GH_NUM_CORES.W))
     val core_trace = Input(UInt(1.W))
     val ic_trace = Input(UInt(1.W))
+    val debug_perf_ctrl = Input(UInt(4.W))
+    val debug_perf_val = Output(UInt(64.W))
     //===== GuardianCouncil Function: End ====//
   }
   //**********************************
@@ -1662,5 +1664,8 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   }
   io.rsu_merging                                  := rsu_master.io.rsu_merging
 
+  io.debug_perf_val                               := ic_master.io.debug_perf_val
+  ic_master.io.debug_perf_sel                     := io.debug_perf_ctrl(3,1)
+  ic_master.io.debug_perf_reset                   := io.debug_perf_ctrl(0)
   //===== GuardianCouncil Function: End ====//
 }

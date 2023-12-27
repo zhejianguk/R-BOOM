@@ -185,6 +185,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   val core_trace = Wire(UInt(2.W))
   val fi_sel = Wire(UInt(8.W))
   val fi_latency = Wire(UInt(57.W))
+  val debug_perf_sel = Wire(UInt(4.W))
 
   val debug_gtimer_reset = Reg(UInt(1.W))
   val debug_gtimer = Reg(UInt(62.W))
@@ -344,6 +345,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     ic_counter_superset                          := core.io.ic_counter.reverse.reduce(Cat(_,_))
     outer.ic_counter_SRNode.bundle               := ic_counter_superset
     core.io.num_of_checker                       := number_checkers_bridge.io.out
+    core.io.debug_perf_ctrl                      := debug_perf_sel
   } else { 
     // Not be used, added to pass the compile
     core.io.gh_stall                             := 0.U
@@ -427,6 +429,8 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
         cmdRouter.io.gtimer_reset_in                 := rocc.module.io.gtimer_reset_out
         cmdRouter.io.fi_sel_in                       := rocc.module.io.fi_sel_out 
         cmdRouter.io.core_trace_in                   := rocc.module.io.core_trace_out
+        rocc.module.io.elu_data_in                   := cmdRouter.io.elu_data_in
+        cmdRouter.io.debug_perf_ctrl_in              := rocc.module.io.debug_perf_ctrl        
         //===== GuardianCouncil Function: End   ====//
       }
       // Create this FPU just for RoCC
@@ -503,6 +507,8 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     s_or_r                                       := cmdRouter.io.s_or_r_out(1)
     fi_sel                                       := cmdRouter.io.fi_sel_out
     core_trace                                   := cmdRouter.io.core_trace_out
+    cmdRouter.io.elu_data_in                     := core.io.debug_perf_val
+    debug_perf_sel                               := cmdRouter.io.debug_perf_ctrl_out
     //===== GuardianCouncil Function: End   ====//
   }
 
