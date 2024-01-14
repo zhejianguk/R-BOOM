@@ -201,7 +201,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
   val gc_core_width                               = outer.boomParams.core.decodeWidth
   if (outer.tileParams.hartId == 0) {
     println("#### Jessica #### Generating GHT for the big core, HartID: ", outer.boomParams.hartId, "...!!!")
-    val ght = Module(new GHT(GHTParams(vaddrBitsExtended, p(XLen), (GH_GlobalParams.GH_NUM_CORES-1), 256, (GH_GlobalParams.GH_NUM_CORES-1), GH_GlobalParams.GH_WIDITH_PACKETS, gc_core_width, true)))
+    val ght = Module(new GHT(GHTParams(vaddrBitsExtended, p(XLen), (GH_GlobalParams.GH_NUM_CORES-1), 256, 1, GH_GlobalParams.GH_WIDITH_PACKETS, gc_core_width, true)))
 
     val fiu = Module(new R_FIU(R_FIUParams(64, GH_GlobalParams.GH_NUM_CORES-1)))
     fiu.io.gtimer                                := debug_gtimer
