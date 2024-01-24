@@ -221,7 +221,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     ght.io.ght_cfg_valid                         := ght_cfg_v_bridge.io.out
     ght.io.debug_bp_reset                        := debug_bp_reset_bridge.io.out
     outer.ght_packet_out_SRNode.bundle           := ght.io.ght_packet_out
-    outer.ght_packet_dest_SRNode.bundle          := ght.io.ght_packet_dest
+    outer.ght_packet_dest_SRNode.bundle          := Cat(ght.io.arfs_dest, ght.io.ght_packet_dest)
     core.io.gh_stall                             := ght.io.core_hang_up
     outer.ghe_event_out_SRNode.bundle            := ghe_bridge.io.out
     outer.clear_ic_status_SRNode.bundle          := 0.U
@@ -345,6 +345,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
       ght.io.core_r_arfs_index(w)                := 0.U
     }
     outer.core_r_arfs_SRNode.bundle              := Cat(core.io.r_arfs_pidx(0), core.io.r_arfs(0))
+    ght.io.inst_index_arfs                       := core.io.r_arfs_pidx(0)
 
     ght.io.rsu_merging                           := core.io.rsu_merging
     ght.io.if_correct_process                    := if_correct_process_bridge.io.out
