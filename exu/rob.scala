@@ -257,6 +257,7 @@ class Rob(
   val will_commit         = Wire(Vec(coreWidth, Bool()))
   val can_commit          = Wire(Vec(coreWidth, Bool()))
   val can_commit_noGC     = Wire(Vec(coreWidth, Bool()))
+  val will_commit_noGC    = Wire(Vec(coreWidth, Bool()))
   val can_throw_exception = Wire(Vec(coreWidth, Bool()))
 
   val rob_pnr_unsafe      = Wire(Vec(coreWidth, Bool())) // are the instructions at the pnr unsafe?
@@ -568,6 +569,8 @@ class Rob(
   // it that want to commit (only throw exception when head of the bundle).
 
   var block_commit = (rob_state =/= s_normal) && (rob_state =/= s_wait_till_empty) || RegNext(exception_thrown) || RegNext(RegNext(exception_thrown))
+  var block_commit_noGC = (rob_state =/= s_normal) && (rob_state =/= s_wait_till_empty) || RegNext(exception_thrown) || RegNext(RegNext(exception_thrown))
+
   var will_throw_exception = false.B
   var block_xcpt   = false.B
 
@@ -577,6 +580,11 @@ class Rob(
     will_commit(w)       := can_commit(w) && !can_throw_exception(w) && !block_commit
     block_commit         = (rob_head_vals(w) &&
                            (!can_commit(w) || can_throw_exception(w))) || block_commit
+
+    will_commit_noGC(w)  := can_commit_noGC(w) && !can_throw_exception(w) && !block_commit_noGC
+    block_commit_noGC    = (rob_head_vals(w) &&
+                           (!can_commit_noGC(w) || can_throw_exception(w))) || block_commit_noGC
+
     block_xcpt           = will_commit(w)
   }
 
@@ -893,7 +901,7 @@ class Rob(
   // Outputs
 
   io.com_load_is_at_rob_head := RegNext(rob_head_uses_ldq(PriorityEncoder(rob_head_vals.asUInt)) &&
-                                        !will_commit.reduce(_||_))
+                                        !will_commit_noGC.reduce(_||_))
 
 
 

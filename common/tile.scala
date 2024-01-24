@@ -337,9 +337,15 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     core.io.ght_filters_ready                    := ght.io.ght_filters_ready
     core.io.if_correct_process                   := if_correct_process_bridge.io.out
     for (w <- 0 until gc_core_width){
+      /*
       ght.io.core_r_arfs(w)                      := core.io.r_arfs(w)
       ght.io.core_r_arfs_index(w)                := core.io.r_arfs_pidx(w)
+      */
+      ght.io.core_r_arfs(w)                      := 0.U
+      ght.io.core_r_arfs_index(w)                := 0.U
     }
+    outer.core_r_arfs_SRNode.bundle              := Cat(core.io.r_arfs_pidx(0), core.io.r_arfs(0))
+
     ght.io.rsu_merging                           := core.io.rsu_merging
     ght.io.if_correct_process                    := if_correct_process_bridge.io.out
     val ic_counter_superset                       = WireInit(0.U((16*GH_GlobalParams.GH_NUM_CORES).W))

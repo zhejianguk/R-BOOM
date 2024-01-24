@@ -94,8 +94,8 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val icctrl = Input(UInt(4.W))
     val t_value = Input(UInt(4.W))
     val ght_filters_ready = Input(UInt(1.W))
-    val r_arfs = Output (Vec(coreWidth, (UInt((xLen*2+8).W))))
-    val r_arfs_pidx = Output(Vec(coreWidth, UInt(8.W)))
+    val r_arfs = Output (Vec(1, (UInt((xLen*2+8).W))))
+    val r_arfs_pidx = Output(Vec(1, UInt(8.W)))
     val rsu_merging = Output(UInt(1.W))
     val ic_crnt_target = Output(UInt(5.W))
     val if_correct_process = Input(UInt(1.W))
@@ -1604,7 +1604,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   
 
   /* R Features */
-  val rsu_master = Module(new R_RSU(R_RSUParams(xLen, numARFS, coreWidth)))
+  val rsu_master = Module(new R_RSU(R_RSUParams(xLen, numARFS, 1)))
   val ic_master = Module(new R_IC(R_ICParams(GH_GlobalParams.GH_NUM_CORES, 16)))
   val r_exception_record_2                         = RegInit(0.U(1.W))
   r_exception_record_2                            := Mux(csr.io.r_exception.asBool, 1.U, Mux(ic_incr =/= 0.U && r_exception_record_2.asBool, 0.U, r_exception_record_2))
@@ -1658,7 +1658,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   rsu_master.io.ic_trace                          := io.ic_trace 
   rsu_stall                                       := rsu_master.io.core_hang_up
 
-  for (w <- 0 until coreWidth){
+  for (w <- 0 until 1){
     io.r_arfs(w)                                  := Cat(rsu_master.io.arfs_index(w), rsu_master.io.arfs_merge(w))
     io.r_arfs_pidx(w)                             := rsu_master.io.arfs_pidx(w)
   }
