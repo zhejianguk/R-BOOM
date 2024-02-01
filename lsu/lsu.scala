@@ -55,6 +55,11 @@ import boom.common._
 import boom.exu.{BrUpdateInfo, Exception, FuncUnitResp, CommitSignals, ExeUnitResp}
 import boom.util.{BoolToChar, AgePriorityEncoder, IsKilledByBranch, GetNewBrMask, WrapInc, IsOlder, UpdateBrMask}
 
+//===== GuardianCouncil Function: Start ====//
+import freechips.rocketchip.r._
+import freechips.rocketchip.guardiancouncil._
+//===== GuardianCouncil Function: End   ====//
+
 class LSUExeIO(implicit p: Parameters) extends BoomBundle()(p)
 {
   // The "resp" of the maddrcalc is really a "req" to the LSU
@@ -162,6 +167,7 @@ class LSUIO(implicit p: Parameters, edge: TLEdgeOut) extends BoomBundle()(p)
   //===== GuardianCouncil Function: Start ====//
   val ldq_head                                    = Output(Vec(coreWidth, UInt((2*xLen).W)))
   val stq_head                                    = Output(Vec(coreWidth, UInt((2*xLen).W)))
+  val core_trace                                  = Input(UInt(1.W))
   //===== GuardianCouncil Function: End ====//
 
   val ptw   = new rocket.TLBPTWIO
@@ -1453,6 +1459,28 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   var temp_stq_commit_head = stq_commit_head
   var temp_ldq_head        = ldq_head
+  val debug_ldq_idx = Wire(Vec(memWidth, UInt(64.W)))
+  val debug_ldq_addr = Wire(Vec(memWidth, UInt(64.W)))
+  val debug_stq_idx = Wire(Vec(memWidth, UInt(64.W)))
+  val debug_stq_addr = Wire(Vec(memWidth, UInt(64.W)))
+
+  if (GH_GlobalParams.GH_DEBUG == 1) {
+  for (w <- 0 until memWidth) {
+      debug_ldq_idx(w) := Mux(io.dmem.resp(w).valid, io.dmem.resp(w).bits.uop.ldq_idx, 0.U)
+      debug_ldq_addr(w) := Mux(io.dmem.resp(w).valid, ldq(debug_ldq_idx(w)).bits.addr.bits, 0.U)
+      debug_stq_idx(w) := Mux(io.dmem.resp(w).valid, io.dmem.resp(w).bits.uop.stq_idx, 0.U)
+      debug_stq_addr(w) := Mux(io.dmem.resp(w).valid, stq(debug_stq_idx(w)).bits.addr.bits, 0.U)
+  }
+  when (io.core_trace.asBool) {
+    for (w <- 0 until memWidth) {
+    when (io.dmem.resp(w).valid) {
+      printf(midas.targetutils.SynthesizePrintf("CT %x [%x]%x [%x]%x\n",
+        io.dmem.resp(w).bits.data, io.dmem.resp(w).bits.uop.uses_ldq.asUInt, debug_ldq_addr(w), io.dmem.resp(w).bits.uop.uses_stq.asUInt, debug_stq_addr(w)))
+      }
+    }
+  }
+  }
+
   for (w <- 0 until coreWidth)
   {
     val commit_store = io.core.commit.valids(w) && io.core.commit.uops(w).uses_stq
@@ -1475,14 +1503,16 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
     }
 
-    if (MEMTRACE_PRINTF) {
-      when (commit_store || commit_load) {
-        val uop    = Mux(commit_store, stq(idx).bits.uop, ldq(idx).bits.uop)
-        val addr   = Mux(commit_store, stq(idx).bits.addr.bits, ldq(idx).bits.addr.bits)
-        val stdata = Mux(commit_store, stq(idx).bits.data.bits, 0.U)
-        val wbdata = Mux(commit_store, stq(idx).bits.debug_wb_data, ldq(idx).bits.debug_wb_data)
-        printf("MT %x %x %x %x %x %x %x\n",
-          io.core.tsc_reg, uop.uopc, uop.mem_cmd, uop.mem_size, addr, stdata, wbdata)
+    if (GH_GlobalParams.GH_DEBUG == 1) {
+      when (io.core_trace.asBool) {
+        when (commit_store || commit_load) {
+          val uop    = Mux(commit_store, stq(idx).bits.uop, ldq(idx).bits.uop)
+          val addr   = Mux(commit_store, stq(idx).bits.addr.bits, ldq(idx).bits.addr.bits)
+          val stdata = Mux(commit_store, stq(idx).bits.data.bits, 0.U)
+          val wbdata = Mux(commit_store, stq(idx).bits.debug_wb_data, ldq(idx).bits.debug_wb_data)
+          printf(midas.targetutils.SynthesizePrintf("MT %x %x %x %x %x %x %x\n",
+            io.core.tsc_reg, uop.uopc, uop.mem_cmd, uop.mem_size, addr, stdata, wbdata))
+        }
       }
     }
 

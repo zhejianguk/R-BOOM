@@ -303,6 +303,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
 
     val zeros_72bits                              = WireInit(0.U(72.W))
     val zeros_8bits                               = WireInit(0.U(8.W))
+    lsu.io.core_trace                            := core_trace(0)
 
 
     for (w <- 0 until gc_core_width) {
@@ -347,7 +348,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     outer.core_r_arfs_SRNode.bundle              := Cat(core.io.r_arfs_pidx(0), core.io.r_arfs(0))
     ght.io.inst_index_arfs                       := core.io.r_arfs_pidx(0)
 
-    ght.io.rsu_merging                           := core.io.rsu_merging
+    ght.io.rsu_merging                           := 0.U
     ght.io.if_correct_process                    := if_correct_process_bridge.io.out
     val ic_counter_superset                       = WireInit(0.U((16*GH_GlobalParams.GH_NUM_CORES).W))
     ic_counter_superset                          := core.io.ic_counter.reverse.reduce(Cat(_,_))
