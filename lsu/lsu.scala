@@ -1459,12 +1459,12 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
 
   var temp_stq_commit_head = stq_commit_head
   var temp_ldq_head        = ldq_head
+  
+  if (GH_GlobalParams.GH_DEBUG == 1) {
   val debug_ldq_idx = Wire(Vec(memWidth, UInt(64.W)))
   val debug_ldq_addr = Wire(Vec(memWidth, UInt(64.W)))
   val debug_stq_idx = Wire(Vec(memWidth, UInt(64.W)))
   val debug_stq_addr = Wire(Vec(memWidth, UInt(64.W)))
-
-  if (GH_GlobalParams.GH_DEBUG == 1) {
   for (w <- 0 until memWidth) {
       debug_ldq_idx(w) := Mux(io.dmem.resp(w).valid, io.dmem.resp(w).bits.uop.ldq_idx, 0.U)
       debug_ldq_addr(w) := Mux(io.dmem.resp(w).valid, ldq(debug_ldq_idx(w)).bits.addr.bits, 0.U)
