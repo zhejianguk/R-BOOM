@@ -355,6 +355,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     outer.ic_counter_SRNode.bundle               := ic_counter_superset
     core.io.num_of_checker                       := number_checkers_bridge.io.out
     core.io.debug_perf_ctrl                      := debug_perf_sel
+    outer.debug_maincore_status_SRNode.bundle    := core.io.debug_maincore_status
   } else { 
     // Not be used, added to pass the compile
     core.io.gh_stall                             := 0.U

@@ -103,6 +103,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val clear_ic_status_tomain = Input(UInt(GH_GlobalParams.GH_NUM_CORES.W))
     val icsl_na = Input(UInt(GH_GlobalParams.GH_NUM_CORES.W))
     val core_trace = Input(UInt(1.W))
+    val debug_maincore_status = Output(UInt(4.W))
     val ic_trace = Input(UInt(1.W))
     val debug_perf_ctrl = Input(UInt(4.W))
     val debug_perf_val = Output(UInt(64.W))
@@ -1626,6 +1627,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   ic_master.io.changing_num_of_checker            := Mux((num_activated_cores =/= io.num_of_checker), 1.U, 0.U)
   ic_master.io.core_trace                         := io.core_trace
   csr.io.core_trace                               := io.core_trace
+  io.debug_maincore_status                        := ic_master.io.debug_maincore_status
   
   io.ic_crnt_target                               := ic_master.io.crnt_target
   for (i <-0 until GH_GlobalParams.GH_NUM_CORES){
