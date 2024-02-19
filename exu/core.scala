@@ -107,6 +107,7 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
     val ic_trace = Input(UInt(1.W))
     val debug_perf_ctrl = Input(UInt(4.W))
     val debug_perf_val = Output(UInt(64.W))
+    val shared_CP_CFG = Output(UInt(13.W))
     //===== GuardianCouncil Function: End ====//
   }
   //**********************************
@@ -1669,5 +1670,6 @@ class BoomCore(usingTrace: Boolean)(implicit p: Parameters) extends BoomModule
   io.debug_perf_val                               := ic_master.io.debug_perf_val
   ic_master.io.debug_perf_sel                     := io.debug_perf_ctrl(3,1)
   ic_master.io.debug_perf_reset                   := io.debug_perf_ctrl(0)
+  io.shared_CP_CFG                                := ic_master.io.shared_CP_CFG
   //===== GuardianCouncil Function: End ====//
 }

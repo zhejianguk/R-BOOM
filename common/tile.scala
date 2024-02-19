@@ -325,6 +325,7 @@ class BoomTileModuleImp(outer: BoomTile) extends BaseTileModuleImp(outer){
     ght.io.ic_crnt_target                        := core.io.ic_crnt_target
     ght.io.debug_bp_in                           := outer.debug_bp_in_SKNode.bundle
     ght.io.ght_stall                             := outer.bigcore_hang_in_SKNode.bundle
+    ght.io.shared_CP_CFG                         := core.io.shared_CP_CFG
     ght_buffer_status_bridge.io.in               := ght.io.ght_buffer_status
     debug_mcounter_bridge.io.in                  := ght.io.debug_mcounter
     debug_icounter_bridge.io.in                  := ght.io.debug_icounter
