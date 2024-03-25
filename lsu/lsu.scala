@@ -1474,7 +1474,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
   when (io.core_trace.asBool) {
     for (w <- 0 until memWidth) {
     when (io.dmem.resp(w).valid) {
-      printf(midas.targetutils.SynthesizePrintf("CT %x [%x]%x [%x]%x\n",
+      printf(midas.targetutils.SynthesizePrintf("MT %x [%x]%x [%x]%x\n",
         io.dmem.resp(w).bits.data, io.dmem.resp(w).bits.uop.uses_ldq.asUInt, debug_ldq_addr(w), io.dmem.resp(w).bits.uop.uses_stq.asUInt, debug_stq_addr(w)))
       }
     }
@@ -1510,7 +1510,7 @@ class LSU(implicit p: Parameters, edge: TLEdgeOut) extends BoomModule()(p)
           val addr   = Mux(commit_store, stq(idx).bits.addr.bits, ldq(idx).bits.addr.bits)
           val stdata = Mux(commit_store, stq(idx).bits.data.bits, 0.U)
           val wbdata = Mux(commit_store, stq(idx).bits.debug_wb_data, ldq(idx).bits.debug_wb_data)
-          printf(midas.targetutils.SynthesizePrintf("MT %x %x %x %x %x %x %x\n",
+          printf(midas.targetutils.SynthesizePrintf("CT %x %x %x %x %x %x %x\n",
             io.core.tsc_reg, uop.uopc, uop.mem_cmd, uop.mem_size, addr, stdata, wbdata))
         }
       }
